@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AGE_RANGES,
   CITIES,
@@ -15,6 +15,8 @@ import type { IntakeFormData, MatchApiResponse, MatchResults, ScoredOpportunity 
 import { MATCH_STRENGTH_LABELS } from "@/types/opportunity";
 import { buildFallbackNovaGuide } from "@/data/nova-guide-fallback";
 import type { NovaGuideOpportunity, NovaGuideResponse } from "@/types/nova-guide";
+import type { SignalsApiResponse } from "@/types/signals";
+import { signalsHaveData } from "@/types/signals";
 
 type Stage = "hero" | "intro" | "form" | "results";
 type NovaGuideStatus = "idle" | "loading" | "success" | "fallback";
@@ -313,6 +315,76 @@ function pickTopGuideOpportunities(matchResults: MatchResults): NovaGuideOpportu
     }));
 }
 
+function SignalList({ title, items }: { title: string; items: { label: string; count: number }[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <h4 className="text-sm font-medium text-navy">{title}</h4>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li key={item.label} className="flex items-center justify-between gap-3 text-sm text-navy/80">
+            <span>{item.label}</span>
+            <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-xs font-medium text-navy/70">
+              {item.count}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LiveOpportunitySignalsPanel({ visible }: { visible: boolean }) {
+  const [signals, setSignals] = useState<SignalsApiResponse | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    let cancelled = false;
+
+    void fetch("/api/signals")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: SignalsApiResponse | null) => {
+        if (cancelled || !data || data.degraded || !signalsHaveData(data)) return;
+        setSignals(data);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  if (!visible || !signals) return null;
+
+  return (
+    <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-tan/50 bg-cream/70 px-5 py-5 sm:px-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-display text-xl text-navy-deep">Live Opportunity Signals</h3>
+        <span className="redis-badge w-fit">Redis powered</span>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-navy/75">
+        Anonymous trends from recent Student Nova matches.
+      </p>
+      <div className="mt-5 grid gap-5 sm:grid-cols-3">
+        <SignalList title="Popular interests" items={signals.topInterests} />
+        <SignalList title="Common support needs" items={signals.topSupportTypes} />
+        <SignalList
+          title="Trending opportunities"
+          items={signals.topOpportunities.map((item) => ({
+            label: item.title,
+            count: item.count,
+          }))}
+        />
+      </div>
+      <p className="mt-4 text-xs leading-relaxed text-helper">
+        Aggregate counts only — no names, emails, schools, or free-text answers are stored.
+      </p>
+    </div>
+  );
+}
+
 function NovaGuideCard({
   matchResults,
   guide,
@@ -544,6 +616,8 @@ function ResultsSection({
             Some opportunities may require a parent, guardian, teacher, or counselor to help apply.
           </p>
         )}
+
+        <LiveOpportunitySignalsPanel visible={visible} />
 
         <NovaGuideCard
           matchResults={matchResults}

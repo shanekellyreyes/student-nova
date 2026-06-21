@@ -1,5 +1,6 @@
 import { getMatchesWithRedis } from "@/lib/match-service";
 import { matchOpportunities } from "@/data/matcher";
+import { recordMatchSignals } from "@/lib/redis-signals";
 import type { IntakeFormData, MatchApiResponse, RedisDegradedReason } from "@/types/opportunity";
 
 export const runtime = "nodejs";
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
 
   try {
     const response = await getMatchesWithRedis(intake);
+    const { redis: _redisStatus, ...results } = response;
+    await recordMatchSignals(intake, results);
     return Response.json(response);
   } catch {
     return Response.json(degradedResponse(intake, "redis_timeout"));
