@@ -7,19 +7,28 @@ import {
   FIRST_GEN_OPTIONS,
   IDENTITY_OPTIONS,
   INTEREST_OPTIONS,
+  LANE_LABELS,
   SUPPORT_OPTIONS,
+  opportunities,
 } from "@/data/opportunities";
 import { getReliabilityLabel, matchOpportunities } from "@/data/matcher";
 import { getRedisBadgeLabel } from "@/lib/redis-badge";
-import type { IntakeFormData, MatchApiResponse, MatchResults, ScoredOpportunity } from "@/types/opportunity";
+import type { IntakeFormData, MatchApiResponse, MatchResults, Opportunity, ScoredOpportunity } from "@/types/opportunity";
 import { MATCH_STRENGTH_LABELS } from "@/types/opportunity";
 import { buildFallbackNovaGuide } from "@/data/nova-guide-fallback";
 import type { NovaGuideOpportunity, NovaGuideResponse } from "@/types/nova-guide";
 import type { SignalsApiResponse } from "@/types/signals";
 import { signalsHaveData } from "@/types/signals";
+import type { SourceScoutNote, SourceScoutResponse } from "@/types/source-scout";
 
 type Stage = "hero" | "intro" | "form" | "results";
 type NovaGuideStatus = "idle" | "loading" | "success" | "fallback";
+type SourceScoutStatus = "idle" | "loading" | "success" | "fallback";
+
+const DIRECTORY_LANES = ["financial", "educational", "professional"] as const;
+const DIRECTORY_OPPORTUNITY_IDS = DIRECTORY_LANES.flatMap((lane) =>
+  opportunities.filter((opportunity) => opportunity.lane === lane).map((opportunity) => opportunity.id),
+);
 
 const emptyForm: IntakeFormData = {
   city: "",
@@ -494,6 +503,181 @@ function NovaGuideCard({
   );
 }
 
+function SourceScoutNotePanel({ note }: { note: SourceScoutNote }) {
+  if (note.status === "fallback") {
+    return (
+      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/80 px-4 py-3 text-xs leading-relaxed text-navy/75">
+        <p className="font-medium text-navy">Live refresh unavailable — showing seeded official links</p>
+        {note.reason && <p className="mt-1">{note.reason}</p>}
+        <p className="mt-2 text-helper">Verify requirements on the official site.</p>
+      </div>
+    );
+  }
+
+  if (note.status === "failed") {
+    return (
+      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/80 px-4 py-3 text-xs leading-relaxed text-navy/75">
+        <p className="font-medium text-navy">Could not check this official source</p>
+        {note.reason && <p className="mt-1">{note.reason}</p>}
+        <p className="mt-2 text-helper">Use the seeded official link and verify on the official site.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-sage/30 bg-sage/10 px-4 py-3 text-xs leading-relaxed text-navy/80">
+      <p className="font-medium text-navy">Checked official source</p>
+      {note.pageTitle && (
+        <p className="mt-2">
+          <span className="font-medium text-navy/70">Page title: </span>
+          {note.pageTitle}
+        </p>
+      )}
+      {note.sourceExcerpt && (
+        <p className="mt-2">
+          <span className="font-medium text-navy/70">Source excerpt: </span>
+          {note.sourceExcerpt}
+        </p>
+      )}
+      {note.possibleDeadlineText && (
+        <p className="mt-2">
+          <span className="font-medium text-navy/70">
+            Possible deadline text — verify on official site:{" "}
+          </span>
+          {note.possibleDeadlineText}
+        </p>
+      )}
+      <p className="mt-2 text-helper">Verify requirements on the official site.</p>
+    </div>
+  );
+}
+
+function DirectoryOpportunityCard({
+  opportunity,
+  note,
+}: {
+  opportunity: Opportunity;
+  note?: SourceScoutNote;
+}) {
+  return (
+    <article className="flex h-full flex-col rounded-xl border border-tan/50 bg-cream p-5 transition-shadow hover:shadow-md">
+      <h4 className="font-display text-lg text-navy-deep">{opportunity.title}</h4>
+      <p className="mt-2 text-sm leading-relaxed text-navy/75">{opportunity.description}</p>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {opportunity.badges.map((badge) => (
+          <span
+            key={badge}
+            className="rounded-full bg-lavender-soft/60 px-2.5 py-0.5 text-xs text-navy/70"
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+      <a
+        href={opportunity.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-5 inline-flex items-center justify-center rounded-full border border-navy/30 px-4 py-2 text-sm font-medium text-navy transition-colors hover:border-navy hover:bg-navy hover:text-cream"
+      >
+        View official site
+      </a>
+      <p className="mt-2 text-xs text-helper">{getReliabilityLabel(opportunity.reliability)}</p>
+      <p className="mt-1 text-xs text-helper">Verify requirements on the official site.</p>
+      {note && <SourceScoutNotePanel note={note} />}
+    </article>
+  );
+}
+
+function DirectorySection({
+  visible,
+  sourceScoutNotes,
+  sourceScoutStatus,
+  sessionUrl,
+  onRefresh,
+}: {
+  visible: boolean;
+  sourceScoutNotes: Record<string, SourceScoutNote>;
+  sourceScoutStatus: SourceScoutStatus;
+  sessionUrl: string | null;
+  onRefresh: () => void | Promise<void>;
+}) {
+  if (!visible) return null;
+
+  const laneDescriptions: Record<(typeof DIRECTORY_LANES)[number], string> = {
+    financial: "Scholarships, stipends, and aid worth reviewing.",
+    educational: "Programs, workshops, and learning paths to explore.",
+    professional: "Networks, mentorship, and communities to connect with.",
+  };
+
+  const laneHeaderClass: Record<(typeof DIRECTORY_LANES)[number], string> = {
+    financial: "lane-header--financial",
+    educational: "lane-header--educational",
+    professional: "lane-header--professional",
+  };
+
+  return (
+    <section className="stage-reveal border-t border-tan/40 bg-cream px-6 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="font-display text-3xl text-navy-deep sm:text-4xl">Full opportunity directory</h2>
+          <p className="mt-4 text-base leading-relaxed text-navy/80">
+            Browse all seeded Student Nova opportunities grouped by lane.
+          </p>
+          <p className="mt-2 text-sm text-helper">
+            Nova Source Scout can check a small batch of official pages for cautious live notes.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            disabled={sourceScoutStatus === "loading"}
+            className="rounded-full bg-navy px-6 py-3 text-sm font-medium text-cream transition-all hover:bg-navy-deep disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Refresh official details
+          </button>
+          {sessionUrl && (
+            <a
+              href={sessionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-navy/70 underline-offset-2 hover:text-navy hover:underline"
+            >
+              View Browserbase session
+            </a>
+          )}
+        </div>
+
+        <div className="results-lanes mt-12">
+          {DIRECTORY_LANES.map((lane) => {
+            const laneOpportunities = opportunities.filter((opportunity) => opportunity.lane === lane);
+            return (
+              <div key={lane} className="lane-row">
+                <div className={`lane-header ${laneHeaderClass[lane]}`}>
+                  <h3 className="lane-header-title font-display text-xl sm:text-2xl">
+                    {LANE_LABELS[lane]}
+                  </h3>
+                  <p className="mt-1 text-sm text-helper">{laneDescriptions[lane]}</p>
+                </div>
+                <div className="lane-cards">
+                  {laneOpportunities.map((opportunity) => (
+                    <DirectoryOpportunityCard
+                      key={opportunity.id}
+                      opportunity={opportunity}
+                      note={sourceScoutNotes[opportunity.id]}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
   const { title, description, whyMayFit, badges, matchReasons, matchStrength, url, reliability } =
     opportunity;
@@ -560,6 +744,7 @@ function ResultsSection({
   onGenerateNovaGuide,
   onRefine,
   onStartOver,
+  onSeeAllOpportunities,
 }: {
   visible: boolean;
   matchResults: MatchResults | null;
@@ -569,6 +754,7 @@ function ResultsSection({
   onGenerateNovaGuide: () => void | Promise<void>;
   onRefine: () => void;
   onStartOver: () => void;
+  onSeeAllOpportunities: () => void;
 }) {
   if (!visible || !matchResults) return null;
 
@@ -645,6 +831,13 @@ function ResultsSection({
         <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <button
             type="button"
+            onClick={onSeeAllOpportunities}
+            className="rounded-full bg-navy px-6 py-3 text-sm font-medium text-cream transition-all hover:bg-navy-deep"
+          >
+            See all opportunities
+          </button>
+          <button
+            type="button"
             onClick={onRefine}
             className="rounded-full border-2 border-navy bg-cream px-6 py-3 text-sm font-medium text-navy transition-all hover:bg-navy hover:text-cream"
           >
@@ -685,10 +878,15 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [novaGuide, setNovaGuide] = useState<NovaGuideResponse | null>(null);
   const [novaGuideStatus, setNovaGuideStatus] = useState<NovaGuideStatus>("idle");
+  const [showDirectory, setShowDirectory] = useState(false);
+  const [sourceScoutNotes, setSourceScoutNotes] = useState<Record<string, SourceScoutNote>>({});
+  const [sourceScoutStatus, setSourceScoutStatus] = useState<SourceScoutStatus>("idle");
+  const [sourceScoutSessionUrl, setSourceScoutSessionUrl] = useState<string | null>(null);
 
   const introRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const directoryRef = useRef<HTMLDivElement>(null);
 
   const scrollTo = useCallback((ref: React.RefObject<HTMLDivElement | null>) => {
     requestAnimationFrame(() => {
@@ -750,8 +948,50 @@ export default function Home() {
     setRedisBadge(null);
     setNovaGuide(null);
     setNovaGuideStatus("idle");
+    setShowDirectory(false);
+    setSourceScoutNotes({});
+    setSourceScoutStatus("idle");
+    setSourceScoutSessionUrl(null);
     setStage("hero");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSeeAllOpportunities = () => {
+    setShowDirectory(true);
+    scrollTo(directoryRef);
+  };
+
+  const handleRefreshSourceScout = async () => {
+    setSourceScoutStatus("loading");
+
+    try {
+      const response = await fetch("/api/source-scout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opportunityIds: DIRECTORY_OPPORTUNITY_IDS.slice(0, 5),
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as SourceScoutResponse;
+        setSourceScoutSessionUrl(data.sessionUrl ?? null);
+        setSourceScoutNotes((current) => {
+          const next = { ...current };
+          for (const note of data.notes) {
+            next[note.opportunityId] = note;
+          }
+          return next;
+        });
+        setSourceScoutStatus(
+          data.browserbasePowered && !data.degraded ? "success" : "fallback",
+        );
+      } else {
+        setSourceScoutStatus("fallback");
+      }
+    } catch {
+      setSourceScoutStatus("fallback");
+    }
   };
 
   const handleGenerateNovaGuide = async () => {
@@ -783,6 +1023,12 @@ export default function Home() {
 
   return (
     <>
+      {sourceScoutStatus === "loading" && (
+        <div className="source-scout-indicator fixed inset-x-0 bottom-0 z-50 border-t border-sage/40 bg-navy-deep/95 px-4 py-3 text-center text-sm font-medium text-cream shadow-lg">
+          Nova Source Scout is checking official sources…
+        </div>
+      )}
+
       <HeroSection onUnlock={handleUnlock} />
 
       <div ref={introRef}>
@@ -810,7 +1056,18 @@ export default function Home() {
           onGenerateNovaGuide={handleGenerateNovaGuide}
           onRefine={handleRefine}
           onStartOver={handleStartOver}
+          onSeeAllOpportunities={handleSeeAllOpportunities}
         />
+
+        <div ref={directoryRef}>
+          <DirectorySection
+            visible={stage === "results" && showDirectory}
+            sourceScoutNotes={sourceScoutNotes}
+            sourceScoutStatus={sourceScoutStatus}
+            sessionUrl={sourceScoutSessionUrl}
+            onRefresh={handleRefreshSourceScout}
+          />
+        </div>
       </div>
 
       <Footer />

@@ -138,7 +138,7 @@ export async function generateNovaGuide(
       client.chat.completions.create({
         model: getOpenAiModel(),
         temperature: 0.4,
-        max_tokens: 450,
+        max_completion_tokens: 450,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
