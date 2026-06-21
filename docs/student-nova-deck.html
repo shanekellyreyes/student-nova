@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Student Nova Pitch Deck</title>
+    <style>
+      :root {
+        --ivory: #fbf6e9;
+        --parchment: #f4e8d0;
+        --warm-card: rgba(255, 252, 243, 0.86);
+        --tan: #d9c7a5;
+        --sage: #8da58b;
+        --sage-dark: #4f694f;
+        --gold: #d6a84d;
+        --coral: #c97862;
+        --navy: #122033;
+        --onyx: #202326;
+        --muted: #657176;
+        --line: rgba(18, 32, 51, 0.12);
+        --shadow: 0 24px 70px rgba(18, 32, 51, 0.15);
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(214, 168, 77, 0.18), transparent 28%),
+          radial-gradient(circle at 84% 18%, rgba(141, 165, 139, 0.24), transparent 30%),
+          linear-gradient(135deg, #fffaf0 0%, #f1dfc1 54%, #e6d7bc 100%);
+        color: var(--navy);
+        font-family:
+          Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+        overflow: hidden;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .deck-shell {
+        width: min(100vw, calc(100vh * 16 / 9));
+        height: min(100vh, calc(100vw * 9 / 16));
+        padding: clamp(10px, 1.6vmin, 18px);
+        position: relative;
+      }
+
+      .slide {
+        position: absolute;
+        inset: clamp(10px, 1.6vmin, 18px);
+        aspect-ratio: 16 / 9;
+        display: none;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.94), transparent 26%),
+          radial-gradient(circle at 90% 10%, rgba(141, 165, 139, 0.22), transparent 25%),
+          linear-gradient(135deg, var(--ivory), var(--parchment));
+        border: 1px solid rgba(18, 32, 51, 0.12);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 5.2vmin 6vmin;
+      }
+
+      .slide.active {
+        display: block;
+      }
+
+      .slide::before {
+        content: "";
+        position: absolute;
+        inset: 1.4vmin;
+        border: 1px solid rgba(18, 32, 51, 0.08);
+        border-radius: 14px;
+        pointer-events: none;
+      }
+
+      .slide::after {
+        content: "";
+        position: absolute;
+        right: -11vmin;
+        bottom: -13vmin;
+        width: 34vmin;
+        height: 34vmin;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle, rgba(141, 165, 139, 0.18) 0 38%, transparent 39%),
+          conic-gradient(from 14deg, rgba(214, 168, 77, 0.12), rgba(141, 165, 139, 0.2), rgba(201, 120, 98, 0.09), rgba(214, 168, 77, 0.12));
+        pointer-events: none;
+      }
+
+      .slide-inner {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        display: grid;
+        gap: 2.6vmin;
+      }
+
+      .center {
+        place-items: center;
+        text-align: center;
+      }
+
+      .split {
+        grid-template-columns: 1.04fr 0.96fr;
+        align-items: center;
+      }
+
+      .stack {
+        align-content: center;
+      }
+
+      .topline {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7vmin;
+        color: var(--sage-dark);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 1.45vmin;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .topline::before {
+        content: "";
+        width: 1.9vmin;
+        height: 1.9vmin;
+        border-radius: 999px 999px 999px 0;
+        background: linear-gradient(135deg, var(--sage), #bdd0a7);
+        transform: rotate(-35deg);
+        box-shadow: 0 0 0 0.45vmin rgba(141, 165, 139, 0.13);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        color: var(--navy);
+        font-size: clamp(48px, 10vmin, 106px);
+        line-height: 0.9;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        max-width: 11.2em;
+        color: var(--navy);
+        font-size: clamp(34px, 5.6vmin, 68px);
+        line-height: 0.98;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        color: var(--navy);
+        font-size: clamp(20px, 2.7vmin, 34px);
+        line-height: 1.05;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 17em;
+        color: var(--onyx);
+        font-size: clamp(22px, 3.1vmin, 40px);
+        line-height: 1.18;
+      }
+
+      .body-copy {
+        max-width: 33em;
+        color: var(--muted);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(16px, 1.85vmin, 22px);
+        line-height: 1.48;
+      }
+
+      .large-line {
+        color: var(--onyx);
+        font-size: clamp(26px, 3.7vmin, 46px);
+        line-height: 1.14;
+        font-weight: 700;
+      }
+
+      .small {
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(12px, 1.4vmin, 15px);
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
+      .kicker {
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--sage-dark);
+        font-size: clamp(15px, 1.7vmin, 20px);
+        font-weight: 800;
+      }
+
+      .card {
+        background: var(--warm-card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: 0 12px 32px rgba(18, 32, 51, 0.08);
+        padding: 2.2vmin;
+      }
+
+      .card.soft {
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .cards {
+        display: grid;
+        gap: 1.5vmin;
+      }
+
+      .cards.two {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .cards.three {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .cards.four {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .lane {
+        min-height: 19vmin;
+        display: grid;
+        align-content: start;
+        gap: 1.4vmin;
+        border-top: 0.55vmin solid var(--sage);
+      }
+
+      .lane:nth-child(2) {
+        border-top-color: var(--gold);
+      }
+
+      .lane:nth-child(3) {
+        border-top-color: var(--coral);
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9vmin;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55vmin;
+        width: fit-content;
+        min-height: 3.1vmin;
+        border: 1px solid rgba(18, 32, 51, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 252, 243, 0.78);
+        color: var(--onyx);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(12px, 1.28vmin, 15px);
+        font-weight: 750;
+        padding: 0.62vmin 1.05vmin;
+        white-space: nowrap;
+      }
+
+      .pill .dot,
+      .status-dot {
+        width: 0.85vmin;
+        height: 0.85vmin;
+        border-radius: 50%;
+        background: var(--sage);
+        flex: 0 0 auto;
+      }
+
+      .pill.gold .dot {
+        background: var(--gold);
+      }
+
+      .pill.coral .dot {
+        background: var(--coral);
+      }
+
+      .status-strip,
+      .status-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9vmin;
+        align-items: center;
+      }
+
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65vmin;
+        border: 1px solid rgba(18, 32, 51, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 252, 243, 0.78);
+        color: var(--navy);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(11px, 1.18vmin, 14px);
+        font-weight: 850;
+        padding: 0.58vmin 0.95vmin;
+      }
+
+      .status.planned .status-dot {
+        background: var(--gold);
+      }
+
+      .status.in-progress .status-dot {
+        background: var(--coral);
+      }
+
+      .status.implemented .status-dot {
+        background: var(--sage);
+      }
+
+      .feature-list {
+        display: grid;
+        gap: 1.35vmin;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .feature-list li {
+        display: grid;
+        grid-template-columns: 2vmin 1fr;
+        gap: 1.05vmin;
+        align-items: start;
+        color: var(--onyx);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(16px, 1.78vmin, 21px);
+        line-height: 1.3;
+        font-weight: 700;
+      }
+
+      .feature-list li::before {
+        content: "";
+        width: 1.35vmin;
+        height: 1.35vmin;
+        margin-top: 0.45vmin;
+        border-radius: 999px 999px 999px 0;
+        background: var(--sage);
+        transform: rotate(-35deg);
+      }
+
+      .demo-flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1vmin;
+        align-items: stretch;
+      }
+
+      .flow-step {
+        position: relative;
+        min-height: 13.4vmin;
+        display: grid;
+        align-content: center;
+        gap: 1vmin;
+        padding: 1.6vmin;
+      }
+
+      .flow-step:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        right: -0.86vmin;
+        top: 50%;
+        width: 1.4vmin;
+        height: 1.4vmin;
+        border-top: 2px solid rgba(18, 32, 51, 0.35);
+        border-right: 2px solid rgba(18, 32, 51, 0.35);
+        transform: translateY(-50%) rotate(45deg);
+        background: transparent;
+        z-index: 2;
+      }
+
+      .step-number {
+        color: var(--sage-dark);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(11px, 1.2vmin, 14px);
+        font-weight: 900;
+      }
+
+      .architecture {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.9vmin;
+      }
+
+      .arch-node {
+        position: relative;
+        min-height: 13vmin;
+        display: grid;
+        align-content: center;
+        gap: 0.8vmin;
+        text-align: center;
+        padding: 1.25vmin;
+      }
+
+      .arch-node:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        right: -0.75vmin;
+        top: 50%;
+        width: 1.2vmin;
+        height: 1.2vmin;
+        border-top: 2px solid rgba(18, 32, 51, 0.33);
+        border-right: 2px solid rgba(18, 32, 51, 0.33);
+        transform: translateY(-50%) rotate(45deg);
+        z-index: 3;
+      }
+
+      .icon-seed {
+        width: 4.8vmin;
+        height: 4.8vmin;
+        margin: 0 auto;
+        border-radius: 50% 50% 50% 0;
+        background: linear-gradient(135deg, #dbe7c6, var(--sage));
+        transform: rotate(-35deg);
+        box-shadow: 0 9px 22px rgba(79, 105, 79, 0.18);
+      }
+
+      .nova-mark {
+        position: relative;
+        width: min(42vmin, 370px);
+        height: min(42vmin, 370px);
+        margin: 0 auto;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 252, 243, 0.94) 0 22%, transparent 23%),
+          conic-gradient(from 18deg, rgba(141, 165, 139, 0.58), rgba(214, 168, 77, 0.44), rgba(201, 120, 98, 0.24), rgba(141, 165, 139, 0.58));
+        box-shadow:
+          inset 0 0 0 1px rgba(18, 32, 51, 0.08),
+          0 28px 70px rgba(18, 32, 51, 0.12);
+      }
+
+      .nova-mark::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: 21%;
+        width: 3%;
+        height: 40%;
+        background: var(--sage-dark);
+        border-radius: 999px;
+        transform: translateX(-50%);
+      }
+
+      .nova-mark::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: 45%;
+        width: 25%;
+        height: 16%;
+        border-radius: 999px 999px 999px 0;
+        background: linear-gradient(135deg, #dce7c6, var(--sage));
+        transform: translateX(-16%) rotate(-28deg);
+        box-shadow:
+          -7.2vmin 1.1vmin 0 -2.8vmin rgba(141, 165, 139, 0.74),
+          5.8vmin 4.5vmin 0 -2.9vmin rgba(214, 168, 77, 0.68);
+      }
+
+      .stars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .star {
+        position: absolute;
+        width: 1vmin;
+        height: 1vmin;
+      }
+
+      .star::before,
+      .star::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: rgba(214, 168, 77, 0.54);
+      }
+
+      .star::after {
+        transform: rotate(90deg) scaleX(0.28);
+      }
+
+      .star::before {
+        transform: scaleX(0.28);
+      }
+
+      .s1 {
+        left: 9%;
+        top: 18%;
+      }
+
+      .s2 {
+        left: 80%;
+        top: 20%;
+        transform: scale(0.74);
+      }
+
+      .s3 {
+        left: 74%;
+        top: 68%;
+        transform: scale(1.25);
+      }
+
+      .s4 {
+        left: 22%;
+        top: 73%;
+        transform: scale(0.66);
+      }
+
+      .persona {
+        display: grid;
+        grid-template-columns: 19vmin 1fr;
+        gap: 2.4vmin;
+        align-items: center;
+      }
+
+      .portrait {
+        width: 18vmin;
+        height: 18vmin;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 50% 33%, #f3c8a5 0 18%, transparent 19%),
+          radial-gradient(circle at 50% 54%, #2d2524 0 31%, transparent 32%),
+          radial-gradient(circle at 50% 66%, #8da58b 0 39%, transparent 40%),
+          linear-gradient(135deg, #fff7e6, #e4d3b7);
+        border: 1px solid var(--line);
+        box-shadow: 0 16px 38px rgba(18, 32, 51, 0.12);
+      }
+
+      .quote {
+        border-left: 0.7vmin solid var(--sage);
+        padding-left: 2vmin;
+        color: var(--onyx);
+        font-size: clamp(22px, 3.2vmin, 39px);
+        line-height: 1.16;
+        font-weight: 750;
+      }
+
+      .metric-band {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.4vmin;
+      }
+
+      .metric {
+        min-height: 17vmin;
+        display: grid;
+        align-content: center;
+        gap: 1vmin;
+        text-align: center;
+      }
+
+      .metric strong {
+        color: var(--navy);
+        font-size: clamp(30px, 4.6vmin, 56px);
+        line-height: 1;
+      }
+
+      .footer {
+        position: absolute;
+        left: 6vmin;
+        right: 6vmin;
+        bottom: 3.2vmin;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: rgba(18, 32, 51, 0.58);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 1.22vmin;
+        font-weight: 750;
+      }
+
+      .slide-number {
+        border: 1px solid rgba(18, 32, 51, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 252, 243, 0.68);
+        padding: 0.55vmin 0.9vmin;
+      }
+
+      .controls {
+        position: fixed;
+        right: 2vmin;
+        bottom: 2vmin;
+        z-index: 20;
+        display: flex;
+        gap: 0.8vmin;
+      }
+
+      .controls button {
+        width: 4.2vmin;
+        height: 4.2vmin;
+        min-width: 36px;
+        min-height: 36px;
+        border: 1px solid rgba(18, 32, 51, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 252, 243, 0.9);
+        color: var(--navy);
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(18, 32, 51, 0.12);
+      }
+
+      .controls button:hover,
+      .controls button:focus-visible {
+        outline: 2px solid rgba(79, 105, 79, 0.42);
+        outline-offset: 2px;
+      }
+
+      .compact-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.4vmin;
+      }
+
+      .wordmark {
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(15px, 1.6vmin, 19px);
+        font-weight: 900;
+        color: var(--navy);
+        letter-spacing: 0.02em;
+      }
+
+      @media (max-aspect-ratio: 1 / 1) {
+        .controls {
+          right: 12px;
+          bottom: 12px;
+        }
+      }
+
+      @media print {
+        @page {
+          size: 16in 9in;
+          margin: 0;
+        }
+
+        html,
+        body {
+          width: 16in;
+          min-height: auto;
+          background: #fff;
+          overflow: visible;
+        }
+
+        body {
+          display: block;
+        }
+
+        .deck-shell {
+          width: 16in;
+          height: auto;
+          padding: 0;
+        }
+
+        .slide,
+        .slide.active {
+          position: relative;
+          inset: auto;
+          display: block;
+          width: 16in;
+          height: 9in;
+          border-radius: 0;
+          box-shadow: none;
+          page-break-after: always;
+          break-after: page;
+        }
+
+        .slide:last-of-type {
+          page-break-after: auto;
+          break-after: auto;
+        }
+
+        .controls {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck-shell" aria-live="polite">
+      <section class="slide active" data-title="Title" aria-label="Slide 1: Title">
+        <div class="stars" aria-hidden="true">
+          <span class="star s1"></span>
+          <span class="star s2"></span>
+          <span class="star s3"></span>
+          <span class="star s4"></span>
+        </div>
+        <div class="slide-inner center">
+          <div>
+            <div class="nova-mark" aria-hidden="true"></div>
+            <div class="topline" style="margin-top: 3vmin">UC Berkeley AI Hackathon</div>
+          </div>
+          <div>
+            <h1>Student Nova</h1>
+            <p class="subtitle" style="margin: 2.2vmin auto 0">&ldquo;A warmer first step into STEM opportunity.&rdquo;</p>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">1 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Open with Student Nova as a guided, human-centered entry point for students who know they want a STEM future but do not yet know where to begin. -->
+
+      <section class="slide" data-title="Problem" aria-label="Slide 2: Problem">
+        <div class="stars" aria-hidden="true">
+          <span class="star s1"></span>
+          <span class="star s3"></span>
+        </div>
+        <div class="slide-inner split">
+          <div class="stack">
+            <div class="topline">Problem</div>
+            <h2 style="margin-top: 1.6vmin">Opportunity is everywhere, but rarely easy to enter.</h2>
+            <p class="body-copy" style="margin-top: 2.2vmin">Students often have to decode scattered websites, unclear requirements, unfamiliar program names, and hidden community networks.</p>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <h3>Scattered</h3>
+              <p class="body-copy">Scholarships, programs, workshops, and orgs live across many official sources.</p>
+            </div>
+            <div class="card">
+              <h3>Intimidating</h3>
+              <p class="body-copy">First steps can feel like admissions language, not student support.</p>
+            </div>
+            <div class="card">
+              <h3>Hard to personalize</h3>
+              <p class="body-copy">Students need context by interest, location, community, and support needs.</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">2 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Stress that this is not a motivation problem. It is a discovery and translation problem, especially for first-generation and underserved students. -->
+
+      <section class="slide" data-title="Mission" aria-label="Slide 3: Mission">
+        <div class="slide-inner center">
+          <div class="topline">Mission</div>
+          <h2 style="max-width: 12em">Help students find scholarships, programs, mentorship, and communities that may fit them.</h2>
+          <div class="pill-row" style="justify-content: center; margin-top: 1vmin">
+            <span class="pill"><span class="dot"></span> First-generation</span>
+            <span class="pill gold"><span class="dot"></span> Underrepresented</span>
+            <span class="pill coral"><span class="dot"></span> Bay Area</span>
+            <span class="pill"><span class="dot"></span> STEM-curious</span>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">3 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Keep the wording careful: Student Nova helps students discover opportunities that may fit, then sends them to official sources to review requirements. -->
+
+      <section class="slide" data-title="Product Demo Flow" aria-label="Slide 4: Product Demo Flow">
+        <div class="slide-inner stack">
+          <div>
+            <div class="topline">Product Demo Flow</div>
+            <h2 style="margin-top: 1.4vmin">A short path from curiosity to next step.</h2>
+          </div>
+          <div class="demo-flow">
+            <div class="card flow-step">
+              <span class="step-number">01</span>
+              <h3>Hero</h3>
+              <p class="small">Warm entry point with safe promise.</p>
+            </div>
+            <div class="card flow-step">
+              <span class="step-number">02</span>
+              <h3>Onboarding</h3>
+              <p class="small">Student-centered framing.</p>
+            </div>
+            <div class="card flow-step">
+              <span class="step-number">03</span>
+              <h3>Optional intake</h3>
+              <p class="small">All fields can be skipped.</p>
+            </div>
+            <div class="card flow-step">
+              <span class="step-number">04</span>
+              <h3>Matched results</h3>
+              <p class="small">Three lanes with reasons.</p>
+            </div>
+            <div class="card flow-step">
+              <span class="step-number">05</span>
+              <h3>Nova Guide</h3>
+              <p class="small">Action plan using matched items only.</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">4 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Walk judges through the demo route: landing page, optional intake, matched lanes, then Nova Guide as a planning layer. -->
+
+      <section class="slide" data-title="Matching System" aria-label="Slide 5: Matching System">
+        <div class="slide-inner split">
+          <div>
+            <div class="topline">Matching System</div>
+            <h2 style="margin-top: 1.4vmin">Transparent matching, safer language.</h2>
+            <p class="body-copy" style="margin-top: 2vmin">The matcher is community-aware, location-aware, and rules-based so the product can explain why an opportunity may be relevant.</p>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <h3>Uses signals students choose to share</h3>
+              <div class="pill-row" style="margin-top: 1.3vmin">
+                <span class="pill"><span class="dot"></span> Interests</span>
+                <span class="pill"><span class="dot"></span> Support needs</span>
+                <span class="pill gold"><span class="dot"></span> Location</span>
+                <span class="pill coral"><span class="dot"></span> Community</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Never an eligibility claim</h3>
+              <p class="large-line" style="font-size: clamp(22px, 3.05vmin, 36px); margin-top: 1.2vmin">&ldquo;May fit&rdquo; beats false certainty.</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">5 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Explain that deterministic rules make the demo explainable and safer. The product never tells a student they qualify. -->
+
+      <section class="slide" data-title="Key Features" aria-label="Slide 6: Key Features">
+        <div class="slide-inner stack">
+          <div>
+            <div class="topline">Key Features</div>
+            <h2 style="margin-top: 1.4vmin">Built around clarity, not overwhelm.</h2>
+          </div>
+          <div class="cards three">
+            <div class="card lane">
+              <h3>Financial</h3>
+              <p class="small">Scholarships, stipends, fellowships, and STEM-specific aid.</p>
+            </div>
+            <div class="card lane">
+              <h3>Educational</h3>
+              <p class="small">Programs, workshops, hackathons, university and community pathways.</p>
+            </div>
+            <div class="card lane">
+              <h3>Professional</h3>
+              <p class="small">Organizations, mentorship, career communities, and networks.</p>
+            </div>
+          </div>
+          <div class="compact-grid">
+            <ul class="feature-list card soft">
+              <li>Real opportunity dataset</li>
+              <li>Match reason chips</li>
+              <li>Nova Guide AI</li>
+            </ul>
+            <div class="card soft">
+              <div class="small" style="margin-bottom: 0.9vmin; color: var(--sage-dark); font-weight: 900; text-transform: uppercase">Implemented vs Planned</div>
+              <div class="status-strip" aria-label="Implemented versus planned">
+                <span class="status implemented"><span class="status-dot"></span> Redis Opportunity Signals: implemented</span>
+                <span class="status implemented"><span class="status-dot"></span> Sentry monitoring: implemented</span>
+                <span class="status in-progress"><span class="status-dot"></span> Browserbase Source Scout: in progress</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">6 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Call out the implemented features first. Browserbase has a Source Scout path, but the honest pitch is that source refresh is in progress. -->
+
+      <section class="slide" data-title="Sponsor Tech Stack" aria-label="Slide 7: Sponsor and Tech Stack">
+        <div class="slide-inner stack">
+          <div>
+            <div class="topline">Sponsor / Tech Stack</div>
+            <h2 style="margin-top: 1.4vmin">A practical stack for a trustworthy demo.</h2>
+          </div>
+          <div class="small" style="color: var(--sage-dark); font-weight: 900; text-transform: uppercase">Implemented vs Planned</div>
+          <div class="status-strip" aria-label="Implemented versus planned label">
+            <span class="status implemented"><span class="status-dot"></span> Implemented</span>
+            <span class="status in-progress"><span class="status-dot"></span> In progress</span>
+            <span class="status planned"><span class="status-dot"></span> Planned / expansion</span>
+          </div>
+          <div class="cards four">
+            <div class="card">
+              <h3>Redis</h3>
+              <p class="small">Match metadata cache and anonymous aggregate opportunity signals.</p>
+              <span class="status implemented" style="margin-top: 1.3vmin"><span class="status-dot"></span> Implemented</span>
+            </div>
+            <div class="card">
+              <h3>OpenAI</h3>
+              <p class="small">Nova Guide AI for concise next-step planning from matched opportunities.</p>
+              <span class="status implemented" style="margin-top: 1.3vmin"><span class="status-dot"></span> Implemented with fallback</span>
+            </div>
+            <div class="card">
+              <h3>Sentry</h3>
+              <p class="small">Error monitoring, tracing, and reliability visibility.</p>
+              <span class="status implemented" style="margin-top: 1.3vmin"><span class="status-dot"></span> Implemented</span>
+            </div>
+            <div class="card">
+              <h3>Browserbase</h3>
+              <p class="small">Living-directory official source refresh through Source Scout.</p>
+              <span class="status in-progress" style="margin-top: 1.3vmin"><span class="status-dot"></span> In progress</span>
+            </div>
+          </div>
+          <div class="cards three">
+            <div class="card soft">
+              <h3>Sai</h3>
+              <p class="small">Research, QA, demo prep, and product video support.</p>
+              <span class="status planned" style="margin-top: 1.3vmin"><span class="status-dot"></span> Demo support</span>
+            </div>
+            <div class="card soft">
+              <h3>Vercel</h3>
+              <p class="small">Deployment and web delivery.</p>
+              <span class="status implemented" style="margin-top: 1.3vmin"><span class="status-dot"></span> Stack-ready</span>
+            </div>
+            <div class="card soft">
+              <h3>Next.js / React / TypeScript / Tailwind</h3>
+              <p class="small">Modern app foundation for the demo path.</p>
+              <span class="status implemented" style="margin-top: 1.3vmin"><span class="status-dot"></span> Implemented</span>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">7 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: This is the sponsor slide. Be explicit about what is already in the app and what is being expanded, especially Browserbase and Sai. -->
+
+      <section class="slide" data-title="Architecture" aria-label="Slide 8: Architecture">
+        <div class="slide-inner stack">
+          <div>
+            <div class="topline">Architecture</div>
+            <h2 style="margin-top: 1.4vmin">Simple, explainable, and source-aware.</h2>
+          </div>
+          <div class="small" style="color: var(--sage-dark); font-weight: 900; text-transform: uppercase">Implemented vs Planned</div>
+          <div class="status-strip">
+            <span class="status implemented"><span class="status-dot"></span> Implemented vs Planned: deterministic flow implemented</span>
+            <span class="status in-progress"><span class="status-dot"></span> Browserbase refresh in progress</span>
+          </div>
+          <div class="architecture">
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>User profile</h3>
+              <p class="small">Optional intake</p>
+            </div>
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>Deterministic matcher</h3>
+              <p class="small">Rules and reasons</p>
+            </div>
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>Redis cache / signals</h3>
+              <p class="small">Anonymous metadata</p>
+            </div>
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>Results</h3>
+              <p class="small">Three lanes</p>
+            </div>
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>Nova Guide AI</h3>
+              <p class="small">Matched items only</p>
+            </div>
+            <div class="card arch-node">
+              <div class="icon-seed" aria-hidden="true"></div>
+              <h3>Official links</h3>
+              <p class="small">Browserbase refresh</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">8 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Emphasize that AI is downstream of the matcher and does not invent opportunities. Official links stay central. -->
+
+      <section class="slide" data-title="Trust and Safety" aria-label="Slide 9: Trust and Safety">
+        <div class="slide-inner split">
+          <div>
+            <div class="topline">Trust &amp; Safety</div>
+            <h2 style="margin-top: 1.4vmin">Student support without false certainty.</h2>
+            <p class="body-copy" style="margin-top: 2vmin">The product is intentionally an informational directory, not an admissions, scholarship, legal, or financial decision system.</p>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <h3>Safe language</h3>
+              <div class="pill-row" style="margin-top: 1.3vmin">
+                <span class="pill"><span class="dot"></span> May fit</span>
+                <span class="pill gold"><span class="dot"></span> May be relevant</span>
+                <span class="pill coral"><span class="dot"></span> Review requirements</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Source discipline</h3>
+              <ul class="feature-list" style="margin-top: 1.4vmin">
+                <li>Official links remain visible</li>
+                <li>No hallucinated opportunities</li>
+                <li>Students verify requirements on official sites</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">9 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Judges should hear the safety boundary clearly. Student Nova guides discovery, but opportunity providers define requirements. -->
+
+      <section class="slide" data-title="Demo Persona" aria-label="Slide 10: Demo Persona">
+        <div class="slide-inner split">
+          <div>
+            <div class="topline">Demo Persona</div>
+            <h2 style="margin-top: 1.4vmin">Meet Maya.</h2>
+            <p class="body-copy" style="margin-top: 2vmin">Oakland student, first-generation, interested in Computer Science and AI/Data, looking for scholarships and mentorship.</p>
+          </div>
+          <div class="card persona">
+            <div class="portrait" aria-hidden="true"></div>
+            <div>
+              <h3>Maya</h3>
+              <p class="quote" style="margin-top: 1.4vmin">&ldquo;I know I am interested in STEM. I need a first step that feels findable.&rdquo;</p>
+              <div class="pill-row" style="margin-top: 2vmin">
+                <span class="pill"><span class="dot"></span> Oakland</span>
+                <span class="pill gold"><span class="dot"></span> First-generation</span>
+                <span class="pill coral"><span class="dot"></span> AI/Data</span>
+                <span class="pill"><span class="dot"></span> Mentorship</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">10 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Use Maya to make the demo concrete: not a generic user, but a student with location, interests, and support needs. -->
+
+      <section class="slide" data-title="Impact" aria-label="Slide 11: Impact">
+        <div class="slide-inner center">
+          <div class="topline">Impact</div>
+          <h2 style="max-width: 12em">Student Nova helps students see a pathway into STEM, one opportunity at a time.</h2>
+          <div class="metric-band" style="width: 100%; margin-top: 1.5vmin">
+            <div class="card metric">
+              <strong>1</strong>
+              <p class="small">Warmer first step</p>
+            </div>
+            <div class="card metric">
+              <strong>3</strong>
+              <p class="small">Opportunity lanes</p>
+            </div>
+            <div class="card metric">
+              <strong>Many</strong>
+              <p class="small">Official pathways to review</p>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">11 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Keep impact grounded. The value is reducing friction, surfacing relevant paths, and making the next step feel possible. -->
+
+      <section class="slide" data-title="Limitations and Next" aria-label="Slide 12: Limitations and What's Next">
+        <div class="slide-inner split">
+          <div>
+            <div class="topline">Limitations &amp; What&rsquo;s Next</div>
+            <h2 style="margin-top: 1.4vmin">Honest constraints, clear expansion path.</h2>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <h3>Current limitations</h3>
+              <ul class="feature-list" style="margin-top: 1.4vmin">
+                <li>Opportunity information changes over time</li>
+                <li>Students still need official verification</li>
+                <li>Location ranking can get sharper</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Next</h3>
+              <div class="status-grid" style="margin-top: 1.4vmin">
+                <span class="status planned"><span class="status-dot"></span> More verified opportunities</span>
+                <span class="status in-progress"><span class="status-dot"></span> Browserbase refresh expansion</span>
+                <span class="status planned"><span class="status-dot"></span> Arize evaluation</span>
+                <span class="status planned"><span class="status-dot"></span> Better location ranking</span>
+                <span class="status planned"><span class="status-dot"></span> Saved lists</span>
+                <span class="status planned"><span class="status-dot"></span> Shareable lists</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">12 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: Do not overclaim. Present the demo as a solid seeded directory with responsible future work in verification, evaluation, ranking, and persistence. -->
+
+      <section class="slide" data-title="Closing" aria-label="Slide 13: Closing">
+        <div class="stars" aria-hidden="true">
+          <span class="star s1"></span>
+          <span class="star s2"></span>
+          <span class="star s3"></span>
+          <span class="star s4"></span>
+        </div>
+        <div class="slide-inner center">
+          <div class="nova-mark" aria-hidden="true"></div>
+          <div>
+            <div class="topline">Closing</div>
+            <h2 style="max-width: 13em; margin-top: 1.5vmin">Student Nova turns scattered opportunities into a guided first step.</h2>
+            <p class="subtitle" style="margin: 2vmin auto 0">Warm discovery. Transparent matching. Official sources.</p>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="wordmark">Student Nova</span>
+          <span class="slide-number">13 / 13</span>
+        </div>
+      </section>
+      <!-- Speaker notes: End on the transformation: scattered opportunity becomes one guided first step into STEM. -->
+    </main>
+
+    <nav class="controls" aria-label="Slide navigation">
+      <button type="button" id="previousSlide" aria-label="Previous slide" title="Previous slide">&larr;</button>
+      <button type="button" id="nextSlide" aria-label="Next slide" title="Next slide">&rarr;</button>
+    </nav>
+
+    <script>
+      (function () {
+        const slides = Array.from(document.querySelectorAll(".slide"));
+        const previousButton = document.getElementById("previousSlide");
+        const nextButton = document.getElementById("nextSlide");
+        let current = 0;
+
+        function clampIndex(index) {
+          if (index < 0) return 0;
+          if (index >= slides.length) return slides.length - 1;
+          return index;
+        }
+
+        function showSlide(index) {
+          current = clampIndex(index);
+          slides.forEach((slide, slideIndex) => {
+            const isActive = slideIndex === current;
+            slide.classList.toggle("active", isActive);
+            slide.setAttribute("aria-hidden", String(!isActive));
+          });
+
+          previousButton.disabled = current === 0;
+          nextButton.disabled = current === slides.length - 1;
+          const title = slides[current].dataset.title || "Slide";
+          document.title = `${current + 1}/${slides.length} - ${title} - Student Nova`;
+        }
+
+        function move(delta) {
+          showSlide(current + delta);
+        }
+
+        previousButton.addEventListener("click", () => move(-1));
+        nextButton.addEventListener("click", () => move(1));
+
+        window.addEventListener("keydown", (event) => {
+          if (event.key === "ArrowLeft" || event.key === "PageUp") {
+            event.preventDefault();
+            move(-1);
+          }
+
+          if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+            event.preventDefault();
+            move(1);
+          }
+
+          if (event.key === "Home") {
+            event.preventDefault();
+            showSlide(0);
+          }
+
+          if (event.key === "End") {
+            event.preventDefault();
+            showSlide(slides.length - 1);
+          }
+        });
+
+        showSlide(0);
+      })();
+    </script>
+  </body>
+</html>

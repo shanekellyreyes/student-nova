@@ -39,6 +39,26 @@ const emptyForm: IntakeFormData = {
   supportNeeded: [],
 };
 
+const RESULTS_LOOP_VIDEOS = [
+  "/loopvideo1.mp4",
+  "/loopvideo2.mp4",
+  "/loopvideo3.mp4",
+  "/loopvideo4.mp4",
+  "/loopvideo5.mp4",
+] as const;
+
+function hasMeaningfulIntakeSelection(form: IntakeFormData): boolean {
+  return (
+    form.city !== "" ||
+    form.ageRange !== "" ||
+    form.firstGen === "yes" ||
+    form.firstGen === "no" ||
+    form.identities.length > 0 ||
+    form.interests.length > 0 ||
+    form.supportNeeded.length > 0
+  );
+}
+
 function toggleChip(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
@@ -184,6 +204,8 @@ function FormSection({
 }) {
   if (!visible) return null;
 
+  const canSubmit = hasMeaningfulIntakeSelection(form);
+
   return (
     <section className="stage-reveal bg-cream px-6 py-20">
       <div className="mx-auto max-w-2xl">
@@ -204,6 +226,7 @@ function FormSection({
           className="space-y-8 rounded-2xl border border-tan/60 bg-paper/60 p-6 shadow-sm sm:p-10"
           onSubmit={(event) => {
             event.preventDefault();
+            if (!hasMeaningfulIntakeSelection(form)) return;
             void onSubmit();
           }}
         >
@@ -296,15 +319,69 @@ function FormSection({
           <div className="pt-2 text-center">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-full bg-navy px-10 py-4 text-base font-medium text-cream shadow-md transition-all hover:bg-navy-deep hover:shadow-lg active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+              disabled={isSubmitting || !canSubmit}
+              aria-describedby={!canSubmit ? "intake-helper" : undefined}
+              className={`rounded-full bg-navy px-10 py-4 text-base font-medium text-cream shadow-md transition-all hover:bg-navy-deep hover:shadow-lg active:scale-[0.98] ${
+                isSubmitting
+                  ? "disabled:cursor-wait disabled:opacity-70"
+                  : "disabled:cursor-not-allowed disabled:opacity-50"
+              }`}
             >
               {isSubmitting ? "Finding opportunities…" : "Find my opportunities"}
             </button>
+            {!canSubmit && (
+              <p id="intake-helper" className="mt-3 text-sm text-helper">
+                Choose at least one answer to personalize your opportunities.
+              </p>
+            )}
           </div>
         </form>
       </div>
     </section>
+  );
+}
+
+function ResultsVideoBackground() {
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const activeSrc = RESULTS_LOOP_VIDEOS[activeVideoIndex];
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    void video.play().catch(() => {});
+  }, [activeSrc, prefersReducedMotion]);
+
+  return (
+    <div className="results-video-bg" aria-hidden="true">
+      {!prefersReducedMotion && (
+        <video
+          key={activeSrc}
+          ref={videoRef}
+          src={activeSrc}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={() =>
+            setActiveVideoIndex((index) => (index + 1) % RESULTS_LOOP_VIDEOS.length)
+          }
+          className="results-loop-video"
+        />
+      )}
+      <div className="results-video-overlay" />
+    </div>
   );
 }
 
@@ -642,9 +719,14 @@ function DirectorySection({
               href={sessionUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => {
+                event.preventDefault();
+                window.open(sessionUrl, "_blank", "noopener,noreferrer");
+              }}
               className="text-sm font-medium text-navy/70 underline-offset-2 hover:text-navy hover:underline"
             >
               View Browserbase session
+              <span className="sr-only"> (opens in new tab)</span>
             </a>
           )}
         </div>
@@ -775,7 +857,9 @@ function ResultsSection({
     .join(" · ");
 
   return (
-    <section className="stage-reveal bg-paper-warm px-6 py-20">
+    <section className="results-section relative isolate overflow-hidden">
+      <ResultsVideoBackground />
+      <div className="stage-reveal relative z-10 px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <h2 className="font-display text-center text-3xl text-navy-deep sm:text-4xl">
           Your matched opportunities
@@ -814,8 +898,8 @@ function ResultsSection({
 
         <div className="results-lanes results-bloom mt-12">
           {matchResults.lanes.map((lane) => (
-            <div key={lane.lane} className="lane-row">
-              <div className={`lane-header ${laneHeaderClass[lane.lane]}`}>
+            <div key={lane.lane} className="lane-row lane-panel">
+              <div className={`lane-header lane-header-panel ${laneHeaderClass[lane.lane]}`}>
                 <h3 className="lane-header-title font-display text-xl sm:text-2xl">{lane.label}</h3>
                 <p className="mt-1 text-sm text-helper">{laneDescriptions[lane.lane]}</p>
               </div>
@@ -851,6 +935,7 @@ function ResultsSection({
             Start over
           </button>
         </div>
+      </div>
       </div>
     </section>
   );

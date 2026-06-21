@@ -408,3 +408,93 @@ select:focus-visible,
   background: rgba(212, 196, 168, 0.25);
   color: var(--navy);
 }
+
+/* Results section — sequential single background video */
+.results-section {
+  position: relative;
+  background-color: var(--paper-warm);
+}
+
+.results-video-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  min-height: 100%;
+}
+
+.results-loop-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  opacity: 0.3;
+  transform: scale(1.04);
+  transform-origin: center;
+}
+
+.results-video-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(250, 247, 242, 0.55) 0%, transparent 72%),
+    linear-gradient(
+      180deg,
+      rgba(250, 247, 242, 0.72) 0%,
+      rgba(245, 239, 230, 0.68) 48%,
+      rgba(250, 247, 242, 0.74) 100%
+    );
+}
+
+/* Results lanes — structured panels above video */
+.results-section .lane-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 196, 168, 0.45);
+  background: rgba(250, 247, 242, 0.9);
+  padding: 1.25rem;
+  box-shadow: 0 4px 24px rgba(42, 51, 64, 0.06);
+}
+
+@media (min-width: 768px) {
+  .results-section .lane-panel {
+    padding: 1.5rem;
+  }
+}
+
+.results-section .lane-header-panel {
+  margin-bottom: 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(212, 196, 168, 0.5);
+  border-bottom: 1px solid rgba(212, 196, 168, 0.5);
+  background: rgba(250, 247, 242, 0.96);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 10px rgba(42, 51, 64, 0.05);
+}
+
+.results-section .lane-header-panel.lane-header--financial {
+  border-left: 4px solid rgba(212, 196, 168, 0.85);
+}
+
+.results-section .lane-header-panel.lane-header--educational {
+  border-left: 4px solid rgba(154, 171, 142, 0.75);
+}
+
+.results-section .lane-header-panel.lane-header--professional {
+  border-left: 4px solid rgba(196, 184, 212, 0.8);
+}
+
+.results-section .lane-header-panel .lane-header-title {
+  color: var(--navy-deep);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results-loop-video {
+    display: none;
+  }
+}
