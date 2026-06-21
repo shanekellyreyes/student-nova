@@ -1,65 +1,487 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import {
+  AGE_RANGES,
+  CITIES,
+  FIRST_GEN_OPTIONS,
+  IDENTITY_OPTIONS,
+  INTEREST_OPTIONS,
+  SUPPORT_OPTIONS,
+} from "@/data/opportunities";
+import { matchOpportunities } from "@/data/matcher";
+import type { IntakeFormData, MatchResults, ScoredOpportunity } from "@/types/opportunity";
+
+type Stage = "hero" | "intro" | "form" | "results";
+
+const emptyForm: IntakeFormData = {
+  city: "",
+  ageRange: "",
+  firstGen: "",
+  identities: [],
+  interests: [],
+  supportNeeded: [],
+};
+
+function toggleChip(list: string[], value: string): string[] {
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+function HeroSection({ onUnlock }: { onUnlock: () => void }) {
+  const [videoError, setVideoError] = useState(false);
+
+  return (
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-20">
+      {!videoError ? (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setVideoError(true)}
+        >
+          <source src="/343300.mp4" type="video/mp4" />
+        </video>
+      ) : (
+        <div className="paper-texture absolute inset-0" />
+      )}
+
+      <div className="hero-overlay absolute inset-0" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-onyx/50 via-transparent to-onyx/20" />
+
+      <div className="cloud-drift pointer-events-none absolute top-[12%] left-[8%] h-16 w-32 rounded-full bg-ivory/10 blur-xl" />
+      <div className="cloud-drift pointer-events-none absolute top-[18%] right-[10%] h-12 w-24 rounded-full bg-lavender-soft/15 blur-xl [animation-delay:4s]" />
+
+      <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center text-center">
+        <p className="hero-eyebrow mb-5 text-xs font-medium tracking-widest uppercase">
+          Bay Area STEM opportunity guide
+        </p>
+        <h1 className="font-display hero-title text-5xl leading-[1.05] sm:text-6xl md:text-7xl">
+          Student Nova
+        </h1>
+        <p className="font-display hero-tagline mt-8 text-2xl sm:text-3xl md:text-[2rem]">
+          Discover STEM opportunities built for you.
+        </p>
+        <p className="hero-support mt-5 max-w-md text-sm leading-relaxed sm:text-base">
+          A warm guide for Bay Area students looking for scholarships, programs, workshops, and
+          communities that open doors.
+        </p>
+
+        <button
+          type="button"
+          onClick={onUnlock}
+          className="hero-cta mt-10 rounded-full px-8 py-4 text-base font-medium active:scale-[0.98]"
+        >
+          <span className="hero-cta-icon" aria-hidden="true">
+            ❧
+          </span>
+          Begin your path
+        </button>
+
+        <p className="hero-support mt-6 text-sm">
+          No account needed. All questions are optional.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function IntroSection({ visible, onStart }: { visible: boolean; onStart: () => void }) {
+  if (!visible) return null;
+
+  return (
+    <section className="chapter-section stage-reveal relative px-6 py-24 botanical-corner botanical-corner-tr">
+      <div className="mx-auto max-w-xl text-center">
+        <div className="chapter-ornament mx-auto mb-6" aria-hidden="true" />
+        <p className="font-display text-2xl leading-relaxed text-navy sm:text-3xl">
+          I&apos;m here to help.
+        </p>
+        <p className="mt-4 font-display text-xl leading-relaxed text-navy/80 sm:text-2xl">
+          I&apos;ll ask a few optional questions so I can find resources that may fit your goals,
+          background, and location.
+        </p>
+        <div className="chapter-ornament mx-auto mt-8 rotate-180" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={onStart}
+          className="mt-8 rounded-full border-2 border-navy bg-cream/60 px-8 py-3.5 text-base font-medium text-navy shadow-sm transition-all hover:bg-navy hover:text-cream hover:shadow-md"
+        >
+          Start matching
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ChipGroup({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-3 text-sm font-medium text-navy">{label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const isSelected = selected.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange(toggleChip(selected, option))}
+              className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+                isSelected
+                  ? "chip-selected"
+                  : "border-tan bg-cream text-navy/80 hover:border-sage hover:bg-paper-warm"
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function FormSection({
+  visible,
+  form,
+  onChange,
+  onSubmit,
+}: {
+  visible: boolean;
+  form: IntakeFormData;
+  onChange: (next: IntakeFormData) => void;
+  onSubmit: () => void;
+}) {
+  if (!visible) return null;
+
+  return (
+    <section className="stage-reveal bg-cream px-6 py-20">
+      <div className="mx-auto max-w-2xl">
+        <h2 className="font-display mb-2 text-center text-3xl text-navy-deep">
+          Tell us a little about you
+        </h2>
+        <p className="mb-10 text-center text-sm text-muted">
+          Every field is optional — share only what feels comfortable.
+        </p>
+        <p className="mb-8 text-center text-xs leading-relaxed text-muted">
+          If you&apos;re under 16, Student Nova will prioritize youth-friendly programs and encourage
+          checking details with a parent, guardian, teacher, or counselor.
+        </p>
+
+        <form
+          className="space-y-8 rounded-2xl border border-tan/60 bg-paper/60 p-6 shadow-sm sm:p-10"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className="grid gap-6 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-navy">City</span>
+              <select
+                value={form.city}
+                onChange={(event) => onChange({ ...form, city: event.target.value })}
+                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/30"
+              >
+                <option value="">Select a city (optional)</option>
+                {CITIES.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-navy">Age range</span>
+              <select
+                value={form.ageRange}
+                onChange={(event) => onChange({ ...form, ageRange: event.target.value })}
+                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/30"
+              >
+                <option value="">Select age range (optional)</option>
+                {AGE_RANGES.map((range) => (
+                  <option key={range} value={range}>
+                    {range}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-navy">
+              First-generation college student?
+            </legend>
+            <p className="mb-3 text-xs text-muted">
+              Usually means neither parent completed a 4-year college degree.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {FIRST_GEN_OPTIONS.map((option) => (
+                <label
+                  key={option}
+                  className={`cursor-pointer rounded-full border px-4 py-2 text-sm capitalize transition-colors ${
+                    form.firstGen === option
+                      ? "chip-selected"
+                      : "border-tan bg-cream text-navy/80 hover:border-sage"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="firstGen"
+                    value={option}
+                    checked={form.firstGen === option}
+                    onChange={() => onChange({ ...form, firstGen: option })}
+                    className="sr-only"
+                  />
+                  {option}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <ChipGroup
+            label="Identity / community focus"
+            options={IDENTITY_OPTIONS}
+            selected={form.identities}
+            onChange={(identities) => onChange({ ...form, identities })}
+          />
+
+          <ChipGroup
+            label="Interests"
+            options={INTEREST_OPTIONS}
+            selected={form.interests}
+            onChange={(interests) => onChange({ ...form, interests })}
+          />
+
+          <ChipGroup
+            label="Support needed"
+            options={SUPPORT_OPTIONS}
+            selected={form.supportNeeded}
+            onChange={(supportNeeded) => onChange({ ...form, supportNeeded })}
+          />
+
+          <div className="pt-2 text-center">
+            <button
+              type="submit"
+              className="rounded-full bg-navy px-10 py-4 text-base font-medium text-cream shadow-md transition-all hover:bg-navy-deep hover:shadow-lg active:scale-[0.98]"
+            >
+              Find my opportunities
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
+  const { title, description, whyMayFit, badges, url, sourceName } = opportunity;
+
+  return (
+    <article className="flex h-full flex-col rounded-xl border border-tan/50 bg-cream p-5 transition-shadow hover:shadow-md">
+      <h4 className="font-display text-lg text-navy-deep">{title}</h4>
+      <p className="mt-2 text-sm leading-relaxed text-navy/75">{description}</p>
+      <p className="mt-3 text-sm leading-relaxed text-sage">
+        <span className="font-medium text-navy/80">Why this may fit: </span>
+        {whyMayFit}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {badges.map((badge) => (
+          <span
+            key={badge}
+            className="rounded-full bg-lavender-soft/60 px-2.5 py-0.5 text-xs text-navy/70"
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-5 inline-flex items-center justify-center rounded-full border border-navy/30 px-4 py-2 text-sm font-medium text-navy transition-colors hover:border-navy hover:bg-navy hover:text-cream"
+      >
+        View on {sourceName}
+      </a>
+      <p className="mt-2 text-xs text-muted">Verify requirements on the official site.</p>
+    </article>
+  );
+}
+
+function ResultsSection({
+  visible,
+  matchResults,
+  onRefine,
+  onStartOver,
+}: {
+  visible: boolean;
+  matchResults: MatchResults | null;
+  onRefine: () => void;
+  onStartOver: () => void;
+}) {
+  if (!visible || !matchResults) return null;
+
+  const laneDescriptions: Record<string, string> = {
+    financial: "Scholarships, stipends, and aid worth reviewing.",
+    educational: "Programs, workshops, and learning paths to explore.",
+    professional: "Networks, mentorship, and communities to connect with.",
+  };
+
+  const laneHeaderClass: Record<string, string> = {
+    financial: "lane-header--financial",
+    educational: "lane-header--educational",
+    professional: "lane-header--professional",
+  };
+
+  return (
+    <section className="stage-reveal bg-paper-warm px-6 py-20">
+      <div className="mx-auto max-w-7xl">
+        <h2 className="font-display text-center text-3xl text-navy-deep sm:text-4xl">
+          Your matched opportunities
+        </h2>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-navy/75">
+          Here are opportunities that may fit your background, location, and goals.
+        </p>
+
+        {matchResults.isUnder16 && (
+          <p className="mx-auto mt-4 max-w-2xl rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-center text-sm leading-relaxed text-navy/80">
+            Some opportunities for younger students may require a parent, guardian, teacher, or
+            counselor to help apply.
+          </p>
+        )}
+
+        <div className="results-lanes mt-12">
+          {matchResults.lanes.map((lane) => (
+            <div key={lane.lane} className="lane-row">
+              <div className={`lane-header ${laneHeaderClass[lane.lane]}`}>
+                <h3 className="lane-header-title font-display text-xl sm:text-2xl">{lane.label}</h3>
+                <p className="mt-1 text-sm text-muted">{laneDescriptions[lane.lane]}</p>
+              </div>
+              <div className="lane-cards">
+                {lane.opportunities.map((opportunity) => (
+                  <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={onRefine}
+            className="rounded-full border-2 border-navy bg-cream px-6 py-3 text-sm font-medium text-navy transition-all hover:bg-navy hover:text-cream"
+          >
+            Refine answers
+          </button>
+          <button
+            type="button"
+            onClick={onStartOver}
+            className="rounded-full border border-tan bg-paper px-6 py-3 text-sm font-medium text-navy/70 transition-all hover:border-sage hover:text-navy"
+          >
+            Start over
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-tan/40 bg-navy-deep px-6 py-10 text-center">
+      <p className="mx-auto max-w-2xl text-sm leading-relaxed text-cream/70">
+        Student Nova is an informational directory, not an eligibility decision tool. Always verify
+        deadlines and requirements with the official program.
+      </p>
+      <p className="mt-4 text-xs text-cream/40">
+        UC Berkeley AI Hackathon · DDOSKI&apos;s World
+      </p>
+    </footer>
+  );
+}
 
 export default function Home() {
+  const [stage, setStage] = useState<Stage>("hero");
+  const [form, setForm] = useState<IntakeFormData>(emptyForm);
+  const [matchResults, setMatchResults] = useState<MatchResults | null>(null);
+
+  const introRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const scrollTo = useCallback((ref: React.RefObject<HTMLDivElement | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  const handleUnlock = () => {
+    setStage("intro");
+    scrollTo(introRef);
+  };
+
+  const handleStartMatching = () => {
+    setStage("form");
+    scrollTo(formRef);
+  };
+
+  const handleSubmit = () => {
+    setMatchResults(matchOpportunities(form));
+    setStage("results");
+    scrollTo(resultsRef);
+  };
+
+  const handleRefine = () => {
+    setStage("form");
+    scrollTo(formRef);
+  };
+
+  const handleStartOver = () => {
+    setForm(emptyForm);
+    setMatchResults(null);
+    setStage("hero");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <HeroSection onUnlock={handleUnlock} />
+
+      <div ref={introRef}>
+        <IntroSection visible={stage !== "hero"} onStart={handleStartMatching} />
+      </div>
+
+      <div ref={formRef}>
+        <FormSection
+          visible={stage === "form" || stage === "results"}
+          form={form}
+          onChange={setForm}
+          onSubmit={handleSubmit}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </div>
+
+      <div ref={resultsRef}>
+        <ResultsSection
+          visible={stage === "results"}
+          matchResults={matchResults}
+          onRefine={handleRefine}
+          onStartOver={handleStartOver}
+        />
+      </div>
+
+      <Footer />
+    </>
   );
 }
