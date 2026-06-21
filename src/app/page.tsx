@@ -9,8 +9,9 @@ import {
   INTEREST_OPTIONS,
   SUPPORT_OPTIONS,
 } from "@/data/opportunities";
-import { matchOpportunities } from "@/data/matcher";
+import { getReliabilityLabel, matchOpportunities } from "@/data/matcher";
 import type { IntakeFormData, MatchResults, ScoredOpportunity } from "@/types/opportunity";
+import { MATCH_STRENGTH_LABELS } from "@/types/opportunity";
 
 type Stage = "hero" | "intro" | "form" | "results";
 
@@ -286,12 +287,34 @@ function FormSection({
 }
 
 function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
-  const { title, description, whyMayFit, badges, url, sourceName } = opportunity;
+  const { title, description, whyMayFit, badges, matchReasons, matchStrength, url, reliability } =
+    opportunity;
+
+  const strengthClass =
+    matchStrength === "strong"
+      ? "match-strength--strong"
+      : matchStrength === "good"
+        ? "match-strength--good"
+        : "match-strength--explore";
 
   return (
     <article className="flex h-full flex-col rounded-xl border border-tan/50 bg-cream p-5 transition-shadow hover:shadow-md">
-      <h4 className="font-display text-lg text-navy-deep">{title}</h4>
-      <p className="mt-2 text-sm leading-relaxed text-navy/75">{description}</p>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <h4 className="font-display text-lg text-navy-deep">{title}</h4>
+        <span className={`match-strength shrink-0 ${strengthClass}`}>
+          {MATCH_STRENGTH_LABELS[matchStrength]}
+        </span>
+      </div>
+      <p className="text-sm leading-relaxed text-navy/75">{description}</p>
+      {matchReasons.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {matchReasons.map((reason) => (
+            <span key={reason} className="match-reason-chip">
+              {reason}
+            </span>
+          ))}
+        </div>
+      )}
       <p className="mt-3 text-sm leading-relaxed text-sage">
         <span className="font-medium text-navy/80">Why this may fit: </span>
         {whyMayFit}
@@ -312,9 +335,10 @@ function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
         rel="noopener noreferrer"
         className="mt-5 inline-flex items-center justify-center rounded-full border border-navy/30 px-4 py-2 text-sm font-medium text-navy transition-colors hover:border-navy hover:bg-navy hover:text-cream"
       >
-        View on {sourceName}
+        View official site
       </a>
-      <p className="mt-2 text-xs text-muted">Verify requirements on the official site.</p>
+      <p className="mt-2 text-xs text-muted">{getReliabilityLabel(reliability)}</p>
+      <p className="mt-1 text-xs text-muted">Verify requirements on the official site.</p>
     </article>
   );
 }
@@ -351,13 +375,19 @@ function ResultsSection({
           Your matched opportunities
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-navy/75">
-          Here are opportunities that may fit your background, location, and goals.
+          Here are opportunities that may fit your goals, interests, and background.
         </p>
+        <p className="mt-2 text-center text-sm text-muted">
+          Showing {matchResults.totalCount} opportunities
+        </p>
+
+        <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-lavender/40 bg-cream/80 px-5 py-4 text-center">
+          <p className="text-sm leading-relaxed text-navy/85">{matchResults.personalizedSummary}</p>
+        </div>
 
         {matchResults.isUnder16 && (
           <p className="mx-auto mt-4 max-w-2xl rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-center text-sm leading-relaxed text-navy/80">
-            Some opportunities for younger students may require a parent, guardian, teacher, or
-            counselor to help apply.
+            Some opportunities may require a parent, guardian, teacher, or counselor to help apply.
           </p>
         )}
 

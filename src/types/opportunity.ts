@@ -1,23 +1,23 @@
 export type OpportunityLane = "financial" | "educational" | "professional";
 
-export type AgeTag = "under-16" | "16-17" | "18-24" | "25-plus";
+export type Reliability = "verified-url" | "hand-curated" | "review-deadlines";
+
+export type MatchStrength = "strong" | "good" | "explore";
 
 export type Opportunity = {
   id: string;
   title: string;
   lane: OpportunityLane;
-  cityTags: string[];
-  ageTags: AgeTag[];
-  communityTags: string[];
-  interestTags: string[];
-  supportTags: string[];
-  firstGenFriendly: boolean;
-  veteranFriendly: boolean;
-  youthFriendly: boolean;
-  description: string;
-  whyItMatters: string;
   url: string;
-  sourceName: string;
+  region: string;
+  ageRange: string[];
+  communities: string[];
+  interests: string[];
+  supportTypes: string[];
+  firstGenRelevant: boolean;
+  description: string;
+  whyItMayFit: string;
+  reliability: Reliability;
   badges: string[];
 };
 
@@ -33,6 +33,8 @@ export type IntakeFormData = {
 export type ScoredOpportunity = Opportunity & {
   score: number;
   whyMayFit: string;
+  matchReasons: string[];
+  matchStrength: MatchStrength;
 };
 
 export type LaneResults = {
@@ -44,4 +46,13 @@ export type LaneResults = {
 export type MatchResults = {
   lanes: LaneResults[];
   isUnder16: boolean;
+  isSparseInput: boolean;
+  personalizedSummary: string;
+  totalCount: number;
+};
+
+export const MATCH_STRENGTH_LABELS: Record<MatchStrength, string> = {
+  strong: "Strong Match",
+  good: "Good Match",
+  explore: "Worth Exploring",
 };

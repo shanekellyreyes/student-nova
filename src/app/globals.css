@@ -280,3 +280,42 @@ body {
   color: var(--cream);
   border-color: var(--navy);
 }
+
+.match-reason-chip {
+  display: inline-block;
+  border-radius: 9999px;
+  border: 1px solid rgba(154, 171, 142, 0.55);
+  background: rgba(154, 171, 142, 0.15);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--navy-deep);
+}
+
+.match-strength {
+  display: inline-block;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.match-strength--strong {
+  background: rgba(154, 171, 142, 0.25);
+  color: #3d4f36;
+  border: 1px solid rgba(154, 171, 142, 0.5);
+}
+
+.match-strength--good {
+  background: rgba(196, 184, 212, 0.25);
+  color: #4a4558;
+  border: 1px solid rgba(196, 184, 212, 0.45);
+}
+
+.match-strength--explore {
+  background: rgba(212, 196, 168, 0.3);
+  color: var(--navy);
+  border: 1px solid rgba(212, 196, 168, 0.55);
+}
