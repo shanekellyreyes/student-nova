@@ -51,6 +51,24 @@ export type MatchResults = {
   totalCount: number;
 };
 
+export type RedisDegradedReason =
+  | "missing_env"
+  | "connect_failed"
+  | "redis_timeout"
+  | "cache_read_failed"
+  | "cache_write_failed";
+
+export type RedisStatus = {
+  cacheHit: boolean;
+  geoRanked: boolean;
+  degraded: boolean;
+  reason?: RedisDegradedReason;
+};
+
+export type MatchApiResponse = MatchResults & {
+  redis: RedisStatus;
+};
+
 export const MATCH_STRENGTH_LABELS: Record<MatchStrength, string> = {
   strong: "Strong Match",
   good: "Good Match",

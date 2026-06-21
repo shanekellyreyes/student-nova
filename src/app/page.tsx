@@ -10,7 +10,8 @@ import {
   SUPPORT_OPTIONS,
 } from "@/data/opportunities";
 import { getReliabilityLabel, matchOpportunities } from "@/data/matcher";
-import type { IntakeFormData, MatchResults, ScoredOpportunity } from "@/types/opportunity";
+import { getRedisBadgeLabel } from "@/lib/redis-badge";
+import type { IntakeFormData, MatchApiResponse, MatchResults, ScoredOpportunity } from "@/types/opportunity";
 import { MATCH_STRENGTH_LABELS } from "@/types/opportunity";
 
 type Stage = "hero" | "intro" | "form" | "results";
@@ -157,11 +158,13 @@ function FormSection({
   form,
   onChange,
   onSubmit,
+  isSubmitting = false,
 }: {
   visible: boolean;
   form: IntakeFormData;
   onChange: (next: IntakeFormData) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
+  isSubmitting?: boolean;
 }) {
   if (!visible) return null;
 
@@ -183,7 +186,7 @@ function FormSection({
           className="space-y-8 rounded-2xl border border-tan/60 bg-paper/60 p-6 shadow-sm sm:p-10"
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit();
+            void onSubmit();
           }}
         >
           <div className="grid gap-6 sm:grid-cols-2">
@@ -275,9 +278,10 @@ function FormSection({
           <div className="pt-2 text-center">
             <button
               type="submit"
-              className="rounded-full bg-navy px-10 py-4 text-base font-medium text-cream shadow-md transition-all hover:bg-navy-deep hover:shadow-lg active:scale-[0.98]"
+              disabled={isSubmitting}
+              className="rounded-full bg-navy px-10 py-4 text-base font-medium text-cream shadow-md transition-all hover:bg-navy-deep hover:shadow-lg active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
             >
-              Find my opportunities
+              {isSubmitting ? "Finding opportunities…" : "Find my opportunities"}
             </button>
           </div>
         </form>
@@ -346,11 +350,13 @@ function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
 function ResultsSection({
   visible,
   matchResults,
+  redisBadge,
   onRefine,
   onStartOver,
 }: {
   visible: boolean;
   matchResults: MatchResults | null;
+  redisBadge: string | null;
   onRefine: () => void;
   onStartOver: () => void;
 }) {
@@ -388,6 +394,12 @@ function ResultsSection({
         <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-lavender/40 bg-cream/80 px-5 py-4 text-center">
           <p className="text-sm leading-relaxed text-navy/85">{matchResults.personalizedSummary}</p>
         </div>
+
+        {redisBadge && (
+          <p className="mt-3 text-center">
+            <span className="redis-badge">{redisBadge}</span>
+          </p>
+        )}
 
         {matchResults.isUnder16 && (
           <p className="mx-auto mt-4 max-w-2xl rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-center text-sm leading-relaxed text-navy/80">
@@ -450,6 +462,8 @@ export default function Home() {
   const [stage, setStage] = useState<Stage>("hero");
   const [form, setForm] = useState<IntakeFormData>(emptyForm);
   const [matchResults, setMatchResults] = useState<MatchResults | null>(null);
+  const [redisBadge, setRedisBadge] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const introRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -471,10 +485,32 @@ export default function Home() {
     scrollTo(formRef);
   };
 
-  const handleSubmit = () => {
-    setMatchResults(matchOpportunities(form));
-    setStage("results");
-    scrollTo(resultsRef);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as MatchApiResponse;
+        const { redis, ...results } = data;
+        setMatchResults(results);
+        setRedisBadge(getRedisBadgeLabel(redis));
+      } else {
+        setMatchResults(matchOpportunities(form));
+        setRedisBadge(null);
+      }
+    } catch {
+      setMatchResults(matchOpportunities(form));
+      setRedisBadge(null);
+    } finally {
+      setIsSubmitting(false);
+      setStage("results");
+      scrollTo(resultsRef);
+    }
   };
 
   const handleRefine = () => {
@@ -485,6 +521,7 @@ export default function Home() {
   const handleStartOver = () => {
     setForm(emptyForm);
     setMatchResults(null);
+    setRedisBadge(null);
     setStage("hero");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -503,6 +540,7 @@ export default function Home() {
           form={form}
           onChange={setForm}
           onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
         />
       </div>
 
@@ -510,6 +548,7 @@ export default function Home() {
         <ResultsSection
           visible={stage === "results"}
           matchResults={matchResults}
+          redisBadge={redisBadge}
           onRefine={handleRefine}
           onStartOver={handleStartOver}
         />

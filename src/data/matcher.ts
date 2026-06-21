@@ -31,6 +31,8 @@ const COMMUNITY_CHIP_LABELS: Record<string, string> = {
 const STRONG_MATCH_THRESHOLD = 1400;
 const GOOD_MATCH_THRESHOLD = 600;
 
+const GEO_BOOST = 150;
+
 function countOverlap(selected: string[], tags: string[]): number {
   return selected.filter((item) => tags.includes(item)).length;
 }
@@ -391,7 +393,11 @@ function getMatchStrength(score: number): MatchStrength {
   return "explore";
 }
 
-function scoreOpportunity(opportunity: Opportunity, intake: IntakeFormData): number {
+function scoreOpportunity(
+  opportunity: Opportunity,
+  intake: IntakeFormData,
+  geoBoostIds?: ReadonlySet<string>,
+): number {
   let score = 0;
   const sparse = isSparseInput(intake);
 
@@ -422,6 +428,10 @@ function scoreOpportunity(opportunity: Opportunity, intake: IntakeFormData): num
     }
   }
 
+  if (geoBoostIds?.has(opportunity.id)) {
+    score += GEO_BOOST;
+  }
+
   if (sparse) {
     score += opportunity.firstGenRelevant ? 2 : 1;
   }
@@ -429,11 +439,15 @@ function scoreOpportunity(opportunity: Opportunity, intake: IntakeFormData): num
   return score;
 }
 
-function rankLane(lane: Opportunity["lane"], intake: IntakeFormData): ScoredOpportunity[] {
+function rankLane(
+  lane: Opportunity["lane"],
+  intake: IntakeFormData,
+  geoBoostIds?: ReadonlySet<string>,
+): ScoredOpportunity[] {
   return opportunities
     .filter((opportunity) => opportunity.lane === lane)
     .map((opportunity) => {
-      const score = scoreOpportunity(opportunity, intake);
+      const score = scoreOpportunity(opportunity, intake, geoBoostIds);
       const matchReasons = buildMatchReasonChips(opportunity, intake);
       return {
         ...opportunity,
@@ -451,13 +465,17 @@ export function getReliabilityLabel(reliability: Reliability): string {
   return RELIABILITY_LABELS[reliability];
 }
 
-export function matchOpportunities(intake: IntakeFormData): MatchResults {
+export function matchOpportunities(
+  intake: IntakeFormData,
+  options?: { geoBoostIds?: ReadonlySet<string> },
+): MatchResults {
   const sparse = isSparseInput(intake);
   const lanes: Opportunity["lane"][] = ["financial", "educational", "professional"];
+  const geoBoostIds = options?.geoBoostIds;
   const laneResults = lanes.map((lane) => ({
     lane,
     label: LANE_LABELS[lane],
-    opportunities: rankLane(lane, intake),
+    opportunities: rankLane(lane, intake, geoBoostIds),
   }));
 
   const totalCount = laneResults.reduce((sum, lane) => sum + lane.opportunities.length, 0);

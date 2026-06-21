@@ -368,3 +368,16 @@ select:focus-visible,
   color: var(--navy);
   border: 1px solid rgba(212, 196, 168, 0.55);
 }
+
+.redis-badge {
+  display: inline-block;
+  border-radius: 9999px;
+  border: 1px solid rgba(196, 184, 212, 0.55);
+  background: rgba(196, 184, 212, 0.18);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--navy-deep);
+}
