@@ -164,6 +164,193 @@ export function buildPersonalizedSummary(intake: IntakeFormData, sparse: boolean
   return `Because you selected ${listed}, we ${verb} opportunities that ${focus}.`;
 }
 
+const SUPPORT_CHIP_LABELS: Record<string, string> = {
+  Scholarships: "Scholarship",
+  "Free workshops": "Free Workshops",
+  Mentorship: "Mentorship",
+  Internships: "Internship",
+  Community: "Community",
+  "Transfer support": "Transfer Support",
+  Hackathons: "Hackathons",
+};
+
+const COMMUNITY_LEAD_PHRASES: Record<string, string[]> = {
+  "Latinx / Hispanic": [
+    "it serves Latinx students pursuing engineering and technology",
+    "it may connect you with Latinx STEM community and support",
+  ],
+  "Black / African American": [
+    "it centers Black students building technology, leadership, and confidence",
+    "it may connect you with Black STEM community and mentorship",
+  ],
+  "Woman in STEM": [
+    "it supports women and gender-expansive students exploring STEM fields",
+    "it may offer community for women building technology careers",
+  ],
+  "LGBTQ+": [
+    "it creates affirming space for LGBTQ+ students in STEM",
+    "it may connect you with LGBTQ+ professionals and peers in tech",
+  ],
+  "Native American / Indigenous": [
+    "it supports Indigenous students pursuing science and engineering pathways",
+    "it may connect you with Native STEM community and scholarships",
+  ],
+  "Pacific Islander": [
+    "it may support Pacific Islander students in STEM fields",
+    "it connects Indigenous Pacific communities with science pathways",
+  ],
+  "Disabled / neurodivergent": [
+    "it may support disabled and neurodivergent students entering STEM careers",
+    "it connects students with disabilities to scholarships and employers",
+  ],
+};
+
+type LeadKind =
+  | "firstGen"
+  | "cityStrong"
+  | "cityBayArea"
+  | "community"
+  | "interest"
+  | "support"
+  | "youth"
+  | "age"
+  | "sparse";
+
+type LeadSignal = {
+  kind: LeadKind;
+  weight: number;
+  detail?: string;
+};
+
+function variantIndex(seed: string, mod: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash + seed.charCodeAt(i)) % mod;
+  }
+  return hash;
+}
+
+function collectLeadSignals(opportunity: Opportunity, intake: IntakeFormData): LeadSignal[] {
+  const signals: LeadSignal[] = [];
+
+  if (intake.ageRange && opportunity.ageRange.includes(intake.ageRange)) {
+    signals.push({ kind: "age", weight: 800, detail: intake.ageRange });
+  }
+
+  if (intake.ageRange === "Under 16" && isYouthFriendly(opportunity)) {
+    signals.push({ kind: "youth", weight: 520 });
+  }
+
+  if (intake.city) {
+    const regionScore = scoreRegion(opportunity.region, intake.city);
+    if (regionScore >= 4) {
+      signals.push({ kind: "cityStrong", weight: regionScore * 100, detail: intake.city });
+    } else if (regionScore > 0) {
+      signals.push({ kind: "cityBayArea", weight: regionScore * 100 });
+    }
+  }
+
+  if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
+    signals.push({ kind: "firstGen", weight: 500 });
+  }
+
+  for (const community of getOverlap(intake.identities, opportunity.communities)) {
+    signals.push({ kind: "community", weight: 400, detail: community });
+  }
+
+  for (const interest of getOverlap(intake.interests, opportunity.interests)) {
+    signals.push({ kind: "interest", weight: 400, detail: interest });
+  }
+
+  for (const support of getOverlap(intake.supportNeeded, opportunity.supportTypes)) {
+    signals.push({ kind: "support", weight: 400, detail: support });
+  }
+
+  return signals.sort((a, b) => b.weight - a.weight);
+}
+
+function buildLeadSentence(
+  signal: LeadSignal,
+  opportunity: Opportunity,
+  intake: IntakeFormData,
+): string {
+  const v = variantIndex(opportunity.id, 2);
+
+  switch (signal.kind) {
+    case "firstGen":
+      return v === 0
+        ? "This may fit because it explicitly supports first-generation or low-income students building a STEM pathway."
+        : "This may fit because first-generation students are a core focus of this program.";
+
+    case "cityStrong":
+      return `This may fit because it has strong Bay Area roots and may be easier to explore from ${signal.detail}.`;
+
+    case "cityBayArea":
+      return intake.city
+        ? `This may fit because it serves the broader Bay Area and may still be worth reviewing from ${intake.city}.`
+        : "This may fit because it has Bay Area reach and may be relevant locally.";
+
+    case "community": {
+      const phrases = COMMUNITY_LEAD_PHRASES[signal.detail ?? ""];
+      if (phrases) {
+        return `This may fit because ${phrases[variantIndex(opportunity.id + signal.detail, phrases.length)]}.`;
+      }
+      const label = COMMUNITY_CHIP_LABELS[signal.detail ?? ""] ?? "your selected community";
+      return `This may fit because it may align with ${label} students exploring STEM.`;
+    }
+
+    case "interest":
+      return signal.detail === "Unsure, help me explore"
+        ? "This may fit because it welcomes students who are still exploring STEM and want room to discover."
+        : `This may fit because it connects directly to your interest in ${signal.detail}.`;
+
+    case "support":
+      if (signal.detail === "Mentorship") {
+        return "This may fit because you asked for mentorship and this opportunity emphasizes community support.";
+      }
+      if (signal.detail === "Scholarships") {
+        return "This may fit because you asked about scholarships and this program may offer financial support worth reviewing.";
+      }
+      if (signal.detail === "Free workshops") {
+        return "This may fit because you asked for workshops and this program offers hands-on learning.";
+      }
+      if (signal.detail === "Internships") {
+        return "This may fit because you asked for internships and this pathway may include real-world experience.";
+      }
+      if (signal.detail === "Community") {
+        return "This may fit because you asked for community and this organization centers peer connection.";
+      }
+      return `This may fit because you asked for ${SUPPORT_CHIP_LABELS[signal.detail ?? ""] ?? signal.detail} support.`;
+
+    case "youth":
+      return "This may fit because it is designed with younger students in mind and may welcome under-16 learners.";
+
+    case "age":
+      return `This may fit because it may be relevant for your age range (${signal.detail}).`;
+
+    case "sparse":
+      return "This is a broad Bay Area STEM opportunity worth reviewing based on your open-ended search.";
+
+    default:
+      return "This may fit based on your selections and is worth reviewing.";
+  }
+}
+
+function buildWhyMayFit(opportunity: Opportunity, intake: IntakeFormData, chips: string[]): string {
+  const isSparseCard = chips.length === 1 && chips[0] === "Broad STEM";
+  const signals = collectLeadSignals(opportunity, intake);
+
+  let lead: string;
+
+  if (isSparseCard || signals.length === 0) {
+    lead = buildLeadSentence({ kind: "sparse", weight: 0 }, opportunity, intake);
+  } else {
+    lead = buildLeadSentence(signals[0], opportunity, intake);
+  }
+
+  return `${lead} ${opportunity.whyItMayFit}`.trim();
+}
+
 function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData): string[] {
   const chips: string[] = [];
 
@@ -171,13 +358,8 @@ function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData)
     chips.push("First-Gen Match");
   }
 
-  if (intake.city) {
-    const regionScore = scoreRegion(opportunity.region, intake.city);
-    if (regionScore >= 4) {
-      chips.push("Bay Area Match");
-    } else if (regionScore > 0) {
-      chips.push("Bay Area Match");
-    }
+  if (intake.city && scoreRegion(opportunity.region, intake.city) > 0) {
+    chips.push("Bay Area Match");
   }
 
   for (const community of getOverlap(intake.identities, opportunity.communities)) {
@@ -189,14 +371,14 @@ function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData)
   }
 
   for (const support of getOverlap(intake.supportNeeded, opportunity.supportTypes)) {
-    chips.push(support === "Free workshops" ? "Free Workshops" : support);
+    chips.push(SUPPORT_CHIP_LABELS[support] ?? support);
   }
 
   if (intake.ageRange === "Under 16" && isYouthFriendly(opportunity)) {
-    chips.push("Youth-Friendly");
+    chips.push("Youth Friendly");
   }
 
-  if (chips.length === 0 && isSparseInput(intake)) {
+  if (chips.length === 0) {
     chips.push("Broad STEM");
   }
 
@@ -207,55 +389,6 @@ function getMatchStrength(score: number): MatchStrength {
   if (score >= STRONG_MATCH_THRESHOLD) return "strong";
   if (score >= GOOD_MATCH_THRESHOLD) return "good";
   return "explore";
-}
-
-function buildWhyMayFit(opportunity: Opportunity, intake: IntakeFormData, chips: string[]): string {
-  if (chips.length === 0 || (chips.length === 1 && chips[0] === "Broad STEM")) {
-    return `${opportunity.whyItMayFit} Review requirements on the official site.`;
-  }
-
-  const matchedInterests = getOverlap(intake.interests, opportunity.interests);
-  const matchedSupport = getOverlap(intake.supportNeeded, opportunity.supportTypes);
-  const matchedCommunities = getOverlap(intake.identities, opportunity.communities);
-
-  const parts: string[] = [];
-
-  if (intake.ageRange && opportunity.ageRange.includes(intake.ageRange)) {
-    parts.push(`may be relevant for your age range (${intake.ageRange})`);
-  }
-
-  if (intake.city && scoreRegion(opportunity.region, intake.city) >= 4) {
-    parts.push(`may serve students in ${intake.city}`);
-  } else if (intake.city && scoreRegion(opportunity.region, intake.city) > 0) {
-    parts.push("may be relevant across the Bay Area");
-  }
-
-  if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
-    parts.push("may support first-generation students");
-  }
-
-  if (matchedCommunities.length > 0) {
-    const label =
-      matchedCommunities.length === 1
-        ? (COMMUNITY_CHIP_LABELS[matchedCommunities[0]] ?? matchedCommunities[0])
-        : "your community focus";
-    parts.push(`may align with ${label}`);
-  }
-
-  if (matchedInterests.length > 0) {
-    parts.push(`may match your interest in ${matchedInterests.slice(0, 2).join(" and ")}`);
-  }
-
-  if (matchedSupport.length > 0) {
-    parts.push(`may offer ${matchedSupport.slice(0, 2).join(" and ")} support`);
-  }
-
-  const personalized =
-    parts.length > 0
-      ? `Based on what you shared, this resource ${parts.slice(0, 2).join(" and ")}.`
-      : "";
-
-  return `${personalized} ${opportunity.whyItMayFit}`.trim();
 }
 
 function scoreOpportunity(opportunity: Opportunity, intake: IntakeFormData): number {

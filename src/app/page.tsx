@@ -137,7 +137,7 @@ function ChipGroup({
               key={option}
               type="button"
               onClick={() => onChange(toggleChip(selected, option))}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+              className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sage/50 ${
                 isSelected
                   ? "chip-selected"
                   : "border-tan bg-cream text-navy/80 hover:border-sage hover:bg-paper-warm"
@@ -171,10 +171,10 @@ function FormSection({
         <h2 className="font-display mb-2 text-center text-3xl text-navy-deep">
           Tell us a little about you
         </h2>
-        <p className="mb-10 text-center text-sm text-muted">
+        <p className="mb-10 text-center text-sm text-helper">
           Every field is optional — share only what feels comfortable.
         </p>
-        <p className="mb-8 text-center text-xs leading-relaxed text-muted">
+        <p className="mb-8 text-center text-xs leading-relaxed text-helper">
           If you&apos;re under 16, Student Nova will prioritize youth-friendly programs and encourage
           checking details with a parent, guardian, teacher, or counselor.
         </p>
@@ -192,7 +192,7 @@ function FormSection({
               <select
                 value={form.city}
                 onChange={(event) => onChange({ ...form, city: event.target.value })}
-                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/30"
+                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/40"
               >
                 <option value="">Select a city (optional)</option>
                 {CITIES.map((city) => (
@@ -208,7 +208,7 @@ function FormSection({
               <select
                 value={form.ageRange}
                 onChange={(event) => onChange({ ...form, ageRange: event.target.value })}
-                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/30"
+                className="w-full rounded-xl border border-tan bg-cream px-4 py-3 text-navy outline-none transition-colors focus:border-sage focus:ring-2 focus:ring-sage/40"
               >
                 <option value="">Select age range (optional)</option>
                 {AGE_RANGES.map((range) => (
@@ -224,7 +224,7 @@ function FormSection({
             <legend className="mb-2 text-sm font-medium text-navy">
               First-generation college student?
             </legend>
-            <p className="mb-3 text-xs text-muted">
+            <p className="mb-3 text-xs text-helper">
               Usually means neither parent completed a 4-year college degree.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -315,8 +315,8 @@ function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
           ))}
         </div>
       )}
-      <p className="mt-3 text-sm leading-relaxed text-sage">
-        <span className="font-medium text-navy/80">Why this may fit: </span>
+      <p className="mt-3 text-sm leading-relaxed text-navy/85">
+        <span className="font-medium text-navy-deep">Why this may fit: </span>
         {whyMayFit}
       </p>
       <div className="mt-4 flex flex-wrap gap-1.5">
@@ -337,8 +337,8 @@ function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
       >
         View official site
       </a>
-      <p className="mt-2 text-xs text-muted">{getReliabilityLabel(reliability)}</p>
-      <p className="mt-1 text-xs text-muted">Verify requirements on the official site.</p>
+      <p className="mt-2 text-xs text-helper">{getReliabilityLabel(reliability)}</p>
+      <p className="mt-1 text-xs text-helper">Verify requirements on the official site.</p>
     </article>
   );
 }
@@ -368,17 +368,21 @@ function ResultsSection({
     professional: "lane-header--professional",
   };
 
+  const laneCountText = matchResults.lanes
+    .map((lane) => `${lane.label} ${lane.opportunities.length}`)
+    .join(" · ");
+
   return (
     <section className="stage-reveal bg-paper-warm px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <h2 className="font-display text-center text-3xl text-navy-deep sm:text-4xl">
           Your matched opportunities
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-navy/75">
+        <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-navy/80">
           Here are opportunities that may fit your goals, interests, and background.
         </p>
-        <p className="mt-2 text-center text-sm text-muted">
-          Showing {matchResults.totalCount} opportunities
+        <p className="mt-2 text-center text-sm text-helper">
+          Showing {matchResults.totalCount} opportunities · {laneCountText}
         </p>
 
         <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-lavender/40 bg-cream/80 px-5 py-4 text-center">
@@ -391,12 +395,12 @@ function ResultsSection({
           </p>
         )}
 
-        <div className="results-lanes mt-12">
+        <div className="results-lanes results-bloom mt-12">
           {matchResults.lanes.map((lane) => (
             <div key={lane.lane} className="lane-row">
               <div className={`lane-header ${laneHeaderClass[lane.lane]}`}>
                 <h3 className="lane-header-title font-display text-xl sm:text-2xl">{lane.label}</h3>
-                <p className="mt-1 text-sm text-muted">{laneDescriptions[lane.lane]}</p>
+                <p className="mt-1 text-sm text-helper">{laneDescriptions[lane.lane]}</p>
               </div>
               <div className="lane-cards">
                 {lane.opportunities.map((opportunity) => (

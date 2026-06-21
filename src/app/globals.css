@@ -15,7 +15,8 @@
   --tan: #d4c4a8;
   --cream: #faf7f2;
   --foreground: #2a3340;
-  --muted: #6b7280;
+  --muted: #4f5868;
+  --muted-soft: #5c6575;
 }
 
 @theme inline {
@@ -32,6 +33,7 @@
   --color-ivory: var(--ivory);
   --color-onyx: var(--onyx);
   --color-muted: var(--muted);
+  --color-muted-soft: var(--muted-soft);
   --font-sans: var(--font-geist-sans);
   --font-display: var(--font-fraunces);
 }
@@ -279,6 +281,53 @@ body {
   background: var(--navy);
   color: var(--cream);
   border-color: var(--navy);
+}
+
+/* Accessible focus rings */
+:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 2px;
+}
+
+.text-helper {
+  color: var(--muted-soft);
+}
+
+/* Results bloom-in */
+.results-bloom .lane-row {
+  opacity: 0;
+  animation: results-bloom 0.55s ease-out forwards;
+}
+
+.results-bloom .lane-row:nth-child(1) {
+  animation-delay: 0.08s;
+}
+
+.results-bloom .lane-row:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.results-bloom .lane-row:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes results-bloom {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .match-reason-chip {
