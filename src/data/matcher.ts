@@ -6,6 +6,11 @@ import type {
   Reliability,
   ScoredOpportunity,
 } from "@/types/opportunity";
+import {
+  COMMUNITY_CHIP_LABELS,
+  hasIdentityMismatch,
+  scoreCommunityMatch,
+} from "@/lib/community-matching";
 import { LANE_LABELS, opportunities } from "./opportunities";
 
 const RELIABILITY_LABELS: Record<Reliability, string> = {
@@ -14,24 +19,51 @@ const RELIABILITY_LABELS: Record<Reliability, string> = {
   "review-deadlines": "Review deadlines and requirements on the official site.",
 };
 
-const COMMUNITY_CHIP_LABELS: Record<string, string> = {
-  "Black / African American": "Black Community",
-  "Latinx / Hispanic": "Latinx Community",
-  "Native American / Indigenous": "Indigenous Community",
-  "Pacific Islander": "Pacific Islander Community",
-  "Asian / Asian American": "Asian Community",
-  "Filipino / Filipino American": "Filipino Community",
-  "Middle Eastern / North African": "MENA Community",
-  "Woman in STEM": "Women in STEM",
-  "LGBTQ+": "LGBTQ+ Community",
-  "Disabled / neurodivergent": "Disability Community",
-  "Veteran / military-connected": "Veteran Community",
-};
-
 const STRONG_MATCH_THRESHOLD = 1400;
 const GOOD_MATCH_THRESHOLD = 600;
 
 const GEO_BOOST = 150;
+
+const SUPPORT_CHIP_LABELS: Record<string, string> = {
+  Scholarships: "Scholarship",
+  "Free workshops": "Free Workshops",
+  Mentorship: "Mentorship",
+  Internships: "Internship",
+  Community: "Community",
+  "Transfer support": "Transfer Support",
+  Hackathons: "Hackathons",
+};
+
+const COMMUNITY_LEAD_PHRASES: Record<string, string[]> = {
+  "Latinx / Hispanic": [
+    "it serves Latinx students pursuing engineering and technology",
+    "it may connect you with Latinx STEM community and support",
+  ],
+  "Black / African American": [
+    "it centers Black students building technology, leadership, and confidence",
+    "it may connect you with Black STEM community and mentorship",
+  ],
+  "Woman in STEM": [
+    "it supports women and gender-expansive students exploring STEM fields",
+    "it may offer community for women building technology careers",
+  ],
+  "LGBTQ+": [
+    "it creates affirming space for LGBTQ+ students in STEM",
+    "it may connect you with LGBTQ+ professionals and peers in tech",
+  ],
+  "Native American / Indigenous": [
+    "it supports Indigenous students pursuing science and engineering pathways",
+    "it may connect you with Native STEM community and scholarships",
+  ],
+  "Pacific Islander": [
+    "it may support Pacific Islander students in STEM fields",
+    "it connects Indigenous Pacific communities with science pathways",
+  ],
+  "Disabled / neurodivergent": [
+    "it may support disabled and neurodivergent students entering STEM careers",
+    "it connects students with disabilities to scholarships and employers",
+  ],
+};
 
 function countOverlap(selected: string[], tags: string[]): number {
   return selected.filter((item) => tags.includes(item)).length;
@@ -166,47 +198,6 @@ export function buildPersonalizedSummary(intake: IntakeFormData, sparse: boolean
   return `Because you selected ${listed}, we ${verb} opportunities that ${focus}.`;
 }
 
-const SUPPORT_CHIP_LABELS: Record<string, string> = {
-  Scholarships: "Scholarship",
-  "Free workshops": "Free Workshops",
-  Mentorship: "Mentorship",
-  Internships: "Internship",
-  Community: "Community",
-  "Transfer support": "Transfer Support",
-  Hackathons: "Hackathons",
-};
-
-const COMMUNITY_LEAD_PHRASES: Record<string, string[]> = {
-  "Latinx / Hispanic": [
-    "it serves Latinx students pursuing engineering and technology",
-    "it may connect you with Latinx STEM community and support",
-  ],
-  "Black / African American": [
-    "it centers Black students building technology, leadership, and confidence",
-    "it may connect you with Black STEM community and mentorship",
-  ],
-  "Woman in STEM": [
-    "it supports women and gender-expansive students exploring STEM fields",
-    "it may offer community for women building technology careers",
-  ],
-  "LGBTQ+": [
-    "it creates affirming space for LGBTQ+ students in STEM",
-    "it may connect you with LGBTQ+ professionals and peers in tech",
-  ],
-  "Native American / Indigenous": [
-    "it supports Indigenous students pursuing science and engineering pathways",
-    "it may connect you with Native STEM community and scholarships",
-  ],
-  "Pacific Islander": [
-    "it may support Pacific Islander students in STEM fields",
-    "it connects Indigenous Pacific communities with science pathways",
-  ],
-  "Disabled / neurodivergent": [
-    "it may support disabled and neurodivergent students entering STEM careers",
-    "it connects students with disabilities to scholarships and employers",
-  ],
-};
-
 type LeadKind =
   | "firstGen"
   | "cityStrong"
@@ -234,6 +225,7 @@ function variantIndex(seed: string, mod: number): number {
 
 function collectLeadSignals(opportunity: Opportunity, intake: IntakeFormData): LeadSignal[] {
   const signals: LeadSignal[] = [];
+  const { matchedIdentities } = scoreCommunityMatch(opportunity, intake);
 
   if (intake.ageRange && opportunity.ageRange.includes(intake.ageRange)) {
     signals.push({ kind: "age", weight: 800, detail: intake.ageRange });
@@ -256,8 +248,8 @@ function collectLeadSignals(opportunity: Opportunity, intake: IntakeFormData): L
     signals.push({ kind: "firstGen", weight: 500 });
   }
 
-  for (const community of getOverlap(intake.identities, opportunity.communities)) {
-    signals.push({ kind: "community", weight: 400, detail: community });
+  for (const community of matchedIdentities) {
+    signals.push({ kind: "community", weight: 650, detail: community });
   }
 
   for (const interest of getOverlap(intake.interests, opportunity.interests)) {
@@ -355,6 +347,7 @@ function buildWhyMayFit(opportunity: Opportunity, intake: IntakeFormData, chips:
 
 function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData): string[] {
   const chips: string[] = [];
+  const { matchedIdentities } = scoreCommunityMatch(opportunity, intake);
 
   if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
     chips.push("First-Gen Match");
@@ -364,7 +357,7 @@ function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData)
     chips.push("Bay Area Match");
   }
 
-  for (const community of getOverlap(intake.identities, opportunity.communities)) {
+  for (const community of matchedIdentities) {
     chips.push(COMMUNITY_CHIP_LABELS[community] ?? community);
   }
 
@@ -400,6 +393,9 @@ function scoreOpportunity(
 ): number {
   let score = 0;
   const sparse = isSparseInput(intake);
+  const mismatch = hasIdentityMismatch(opportunity, intake.identities);
+  const interestFactor = mismatch ? 0.25 : 1;
+  const supportFactor = mismatch ? 0.25 : 1;
 
   if (intake.ageRange) {
     if (opportunity.ageRange.includes(intake.ageRange)) score += 800;
@@ -414,9 +410,9 @@ function scoreOpportunity(
     score += 500;
   }
 
-  score += countOverlap(intake.identities, opportunity.communities) * 400;
-  score += countOverlap(intake.interests, opportunity.interests) * 400;
-  score += countOverlap(intake.supportNeeded, opportunity.supportTypes) * 400;
+  score += scoreCommunityMatch(opportunity, intake).score;
+  score += countOverlap(intake.interests, opportunity.interests) * 400 * interestFactor;
+  score += countOverlap(intake.supportNeeded, opportunity.supportTypes) * 400 * supportFactor;
 
   if (intake.interests.includes("Unsure, help me explore")) {
     if (
@@ -439,6 +435,22 @@ function scoreOpportunity(
   return score;
 }
 
+function scoreOpportunityRecord(
+  opportunity: Opportunity,
+  intake: IntakeFormData,
+  geoBoostIds?: ReadonlySet<string>,
+): ScoredOpportunity {
+  const score = scoreOpportunity(opportunity, intake, geoBoostIds);
+  const matchReasons = buildMatchReasonChips(opportunity, intake);
+  return {
+    ...opportunity,
+    score,
+    matchReasons,
+    matchStrength: getMatchStrength(score),
+    whyMayFit: buildWhyMayFit(opportunity, intake, matchReasons),
+  };
+}
+
 function rankLane(
   lane: Opportunity["lane"],
   intake: IntakeFormData,
@@ -446,19 +458,18 @@ function rankLane(
 ): ScoredOpportunity[] {
   return opportunities
     .filter((opportunity) => opportunity.lane === lane)
-    .map((opportunity) => {
-      const score = scoreOpportunity(opportunity, intake, geoBoostIds);
-      const matchReasons = buildMatchReasonChips(opportunity, intake);
-      return {
-        ...opportunity,
-        score,
-        matchReasons,
-        matchStrength: getMatchStrength(score),
-        whyMayFit: buildWhyMayFit(opportunity, intake, matchReasons),
-      };
-    })
+    .map((opportunity) => scoreOpportunityRecord(opportunity, intake, geoBoostIds))
     .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
     .slice(0, 3);
+}
+
+export function scoreAllOpportunities(
+  intake: IntakeFormData,
+  options?: { geoBoostIds?: ReadonlySet<string> },
+): ScoredOpportunity[] {
+  return opportunities
+    .map((opportunity) => scoreOpportunityRecord(opportunity, intake, options?.geoBoostIds))
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
 
 export function getReliabilityLabel(reliability: Reliability): string {

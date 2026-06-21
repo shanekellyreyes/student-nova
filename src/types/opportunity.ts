@@ -11,6 +11,13 @@ export type Opportunity = {
   url: string;
   region: string;
   ageRange: string[];
+  /** Identity-specific primary audiences */
+  primaryCommunities: string[];
+  /** Broad underrepresented or multi-community support (may include "Underrepresented") */
+  secondaryCommunities: string[];
+  /** Open to students regardless of identity */
+  openToAll: boolean;
+  /** Communities that may appear as match chips when selected by the user */
   communities: string[];
   interests: string[];
   supportTypes: string[];
