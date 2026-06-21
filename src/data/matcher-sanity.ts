@@ -27,6 +27,16 @@ function topLaneIds(intake: IntakeFormData): string[] {
   );
 }
 
+function allMatchReasons(intake: IntakeFormData): string[] {
+  return matchOpportunities(intake).lanes.flatMap((lane) =>
+    lane.opportunities.flatMap((opportunity) => opportunity.matchReasons),
+  );
+}
+
+function isInLaneTop3(intake: IntakeFormData, id: string): boolean {
+  return topLaneIds(intake).includes(id);
+}
+
 export function runMatcherSanityChecks(): SanityCheckResult[] {
   const results: SanityCheckResult[] = [];
 
@@ -55,8 +65,8 @@ export function runMatcherSanityChecks(): SanityCheckResult[] {
 
   results.push({
     name: "Black + CS + Mentorship does not rank SHPE above Black-focused resources",
-    pass: shpeBeatenByAll,
-    detail: `SHPE rank ${rankByScore(blackCsMentorship, "fin-shpe")}; must rank below ${mustBeatShpe.join(", ")}`,
+    pass: shpeBeatenByAll && !isInLaneTop3(blackCsMentorship, "fin-shpe"),
+    detail: `SHPE rank ${rankByScore(blackCsMentorship, "fin-shpe")}; top lane IDs: ${topLaneIds(blackCsMentorship).join(", ")}`,
   });
 
   const latinxEngineering: IntakeFormData = {
@@ -72,6 +82,50 @@ export function runMatcherSanityChecks(): SanityCheckResult[] {
     name: "Latinx + Engineering can rank SHPE highly",
     pass: isInTopN(latinxEngineering, "fin-shpe", 12),
     detail: `SHPE rank ${rankByScore(latinxEngineering, "fin-shpe")}`,
+  });
+
+  const notFirstGen: IntakeFormData = {
+    city: "Oakland",
+    ageRange: "18–24",
+    firstGen: "no",
+    identities: ["Black / African American"],
+    interests: ["Computer Science"],
+    supportNeeded: ["Mentorship"],
+  };
+
+  const notFirstGenChips = allMatchReasons(notFirstGen);
+  results.push({
+    name: "First-gen No never shows First-Gen Match chips",
+    pass: !notFirstGenChips.includes("First-Gen Match"),
+    detail: `Chips seen: ${[...new Set(notFirstGenChips)].join(", ") || "none"}`,
+  });
+
+  const oaklandUser: IntakeFormData = {
+    city: "Oakland",
+    ageRange: "16–17",
+    firstGen: "yes",
+    identities: [],
+    interests: ["Computer Science"],
+    supportNeeded: ["Free workshops"],
+  };
+
+  const oaklandMatches = matchOpportunities(oaklandUser);
+  const oaklandTopIds = topLaneIds(oaklandUser);
+  const oaklandLocationChips = oaklandMatches.lanes.flatMap((lane) =>
+    lane.opportunities.flatMap((opportunity) =>
+      opportunity.matchReasons.filter(
+        (chip) => chip === "Oakland Match" || chip === "Bay Area Match",
+      ),
+    ),
+  );
+
+  results.push({
+    name: "Oakland user boosts local/Bay Area resources with location chips",
+    pass:
+      oaklandTopIds.includes("edu-hidden-genius") ||
+      oaklandTopIds.includes("edu-hack-the-hood") ||
+      oaklandLocationChips.length > 0,
+    detail: `Top IDs: ${oaklandTopIds.join(", ")}; location chips: ${oaklandLocationChips.join(", ") || "none"}`,
   });
 
   const lgbtqIntake: IntakeFormData = {

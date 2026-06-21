@@ -11,6 +11,8 @@ import {
   hasIdentityMismatch,
   scoreCommunityMatch,
 } from "@/lib/community-matching";
+import { scoreFirstGenMatch, shouldShowFirstGenChip } from "@/lib/first-gen-matching";
+import { scoreLocationMatch } from "@/lib/location-matching";
 import { LANE_LABELS, opportunities } from "./opportunities";
 
 const RELIABILITY_LABELS: Record<Reliability, string> = {
@@ -90,24 +92,6 @@ function countFilledFields(intake: IntakeFormData): number {
 
 function isSparseInput(intake: IntakeFormData): boolean {
   return countFilledFields(intake) <= 2;
-}
-
-function scoreRegion(region: string, city: string): number {
-  if (!city) return 0;
-
-  const r = region.toLowerCase();
-
-  if (r.includes(city.toLowerCase())) return 6;
-  if (r.includes("oakland") && city === "Oakland") return 6;
-  if (r.includes("berkeley") && city === "Berkeley") return 6;
-  if (r.includes("san francisco") && city === "San Francisco") return 6;
-  if (r.includes("san jose") && city === "San Jose") return 6;
-  if (r.includes("bay area")) return 4;
-  if (r.includes("statewide ca")) return 3;
-  if (r.includes("national") && r.includes("bay area")) return 2;
-  if (r.includes("national")) return 1;
-
-  return 0;
 }
 
 function formatSelectionList(items: string[]): string {
@@ -236,15 +220,15 @@ function collectLeadSignals(opportunity: Opportunity, intake: IntakeFormData): L
   }
 
   if (intake.city) {
-    const regionScore = scoreRegion(opportunity.region, intake.city);
-    if (regionScore >= 4) {
-      signals.push({ kind: "cityStrong", weight: regionScore * 100, detail: intake.city });
-    } else if (regionScore > 0) {
-      signals.push({ kind: "cityBayArea", weight: regionScore * 100 });
+    const location = scoreLocationMatch(opportunity, intake.city);
+    if (location.score >= 340) {
+      signals.push({ kind: "cityStrong", weight: location.score, detail: intake.city });
+    } else if (location.score > 0) {
+      signals.push({ kind: "cityBayArea", weight: location.score });
     }
   }
 
-  if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
+  if (shouldShowFirstGenChip(opportunity, intake)) {
     signals.push({ kind: "firstGen", weight: 500 });
   }
 
@@ -348,13 +332,14 @@ function buildWhyMayFit(opportunity: Opportunity, intake: IntakeFormData, chips:
 function buildMatchReasonChips(opportunity: Opportunity, intake: IntakeFormData): string[] {
   const chips: string[] = [];
   const { matchedIdentities } = scoreCommunityMatch(opportunity, intake);
+  const location = scoreLocationMatch(opportunity, intake.city);
 
-  if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
+  if (shouldShowFirstGenChip(opportunity, intake)) {
     chips.push("First-Gen Match");
   }
 
-  if (intake.city && scoreRegion(opportunity.region, intake.city) > 0) {
-    chips.push("Bay Area Match");
+  if (location.chip) {
+    chips.push(location.chip);
   }
 
   for (const community of matchedIdentities) {
@@ -403,12 +388,10 @@ function scoreOpportunity(
   }
 
   if (intake.city) {
-    score += scoreRegion(opportunity.region, intake.city) * 100;
+    score += scoreLocationMatch(opportunity, intake.city).score;
   }
 
-  if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
-    score += 500;
-  }
+  score += scoreFirstGenMatch(opportunity, intake).score;
 
   score += scoreCommunityMatch(opportunity, intake).score;
   score += countOverlap(intake.interests, opportunity.interests) * 400 * interestFactor;
@@ -429,7 +412,10 @@ function scoreOpportunity(
   }
 
   if (sparse) {
-    score += opportunity.firstGenRelevant ? 2 : 1;
+    score += 1;
+    if (intake.firstGen === "yes" && opportunity.firstGenRelevant) {
+      score += 1;
+    }
   }
 
   return score;

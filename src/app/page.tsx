@@ -13,8 +13,11 @@ import { getReliabilityLabel, matchOpportunities } from "@/data/matcher";
 import { getRedisBadgeLabel } from "@/lib/redis-badge";
 import type { IntakeFormData, MatchApiResponse, MatchResults, ScoredOpportunity } from "@/types/opportunity";
 import { MATCH_STRENGTH_LABELS } from "@/types/opportunity";
+import { buildFallbackNovaGuide } from "@/data/nova-guide-fallback";
+import type { NovaGuideOpportunity, NovaGuideResponse } from "@/types/nova-guide";
 
 type Stage = "hero" | "intro" | "form" | "results";
+type NovaGuideStatus = "idle" | "loading" | "success" | "fallback";
 
 const emptyForm: IntakeFormData = {
   city: "",
@@ -156,12 +159,14 @@ function ChipGroup({
 function FormSection({
   visible,
   form,
+  isRefining = false,
   onChange,
   onSubmit,
   isSubmitting = false,
 }: {
   visible: boolean;
   form: IntakeFormData;
+  isRefining?: boolean;
   onChange: (next: IntakeFormData) => void;
   onSubmit: () => void | Promise<void>;
   isSubmitting?: boolean;
@@ -172,10 +177,12 @@ function FormSection({
     <section className="stage-reveal bg-cream px-6 py-20">
       <div className="mx-auto max-w-2xl">
         <h2 className="font-display mb-2 text-center text-3xl text-navy-deep">
-          Tell us a little about you
+          {isRefining ? "Refine your answers" : "Tell us a little about you"}
         </h2>
         <p className="mb-10 text-center text-sm text-helper">
-          Every field is optional — share only what feels comfortable.
+          {isRefining
+            ? "Update any answers below, then run matching again when you are ready."
+            : "Every field is optional — share only what feels comfortable."}
         </p>
         <p className="mb-8 text-center text-xs leading-relaxed text-helper">
           If you&apos;re under 16, Student Nova will prioritize youth-friendly programs and encourage
@@ -290,6 +297,131 @@ function FormSection({
   );
 }
 
+function pickTopGuideOpportunities(matchResults: MatchResults): NovaGuideOpportunity[] {
+  return matchResults.lanes
+    .map((lane) => lane.opportunities[0])
+    .filter((opportunity): opportunity is ScoredOpportunity => Boolean(opportunity))
+    .slice(0, 3)
+    .map((opportunity) => ({
+      id: opportunity.id,
+      title: opportunity.title,
+      lane: opportunity.lane,
+      description: opportunity.description,
+      whyItMayFit: opportunity.whyMayFit,
+      url: opportunity.url,
+      badges: opportunity.badges,
+    }));
+}
+
+function NovaGuideCard({
+  matchResults,
+  guide,
+  status,
+  onGenerate,
+}: {
+  matchResults: MatchResults;
+  guide: NovaGuideResponse | null;
+  status: NovaGuideStatus;
+  onGenerate: () => void | Promise<void>;
+}) {
+  const topMatches = pickTopGuideOpportunities(matchResults);
+
+  return (
+    <div className="nova-guide-card mx-auto mt-8 max-w-3xl">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-display text-2xl text-navy-deep">Your Nova Guide</h3>
+          <p className="mt-2 text-sm leading-relaxed text-navy/75">
+            A short action plan based on your top matches — generated only when you ask.
+          </p>
+        </div>
+        {status === "idle" || status === "fallback" ? (
+          <button
+            type="button"
+            onClick={() => void onGenerate()}
+            className="shrink-0 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-cream transition-all hover:bg-navy-deep active:scale-[0.98]"
+          >
+            Generate my Nova Guide
+          </button>
+        ) : null}
+      </div>
+
+      {status === "loading" && (
+        <p className="mt-5 text-sm text-helper">Generating your Nova Guide…</p>
+      )}
+
+      {guide && (status === "success" || status === "fallback") && (
+        <div className="mt-5 space-y-5 border-t border-tan/40 pt-5">
+          <p className="text-center">
+            <span
+              className={`nova-guide-status ${guide.aiPowered ? "" : "nova-guide-status--fallback"}`}
+            >
+              {guide.aiPowered ? "AI-assisted plan" : "Offline starting plan"}
+            </span>
+          </p>
+
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-navy/60">Warm intro</h4>
+            <p className="mt-2 text-sm leading-relaxed text-navy/85">{guide.warmIntro}</p>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-navy/60">
+              Why these may fit
+            </h4>
+            <p className="mt-2 text-sm leading-relaxed text-navy/85">{guide.whyTheseFit}</p>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-navy/60">
+              This week
+            </h4>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-navy/85">
+              {guide.thisWeekSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-navy/60">
+              Questions to ask
+            </h4>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-navy/85">
+              {guide.questionsToAsk.map((question) => (
+                <li key={question}>{question}</li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="rounded-lg border border-sage/30 bg-sage/10 px-4 py-3 text-xs leading-relaxed text-navy/75">
+            {guide.safetyNote}
+          </p>
+
+          {!guide.aiPowered && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => void onGenerate()}
+                className="rounded-full border border-navy/30 px-4 py-2 text-sm font-medium text-navy transition-colors hover:border-navy hover:bg-navy hover:text-cream"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {status === "idle" && topMatches.length > 0 && (
+        <p className="mt-4 text-xs text-helper">
+          Will use your top match from each lane:{" "}
+          {topMatches.map((opportunity) => opportunity.title).join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function OpportunityCard({ opportunity }: { opportunity: ScoredOpportunity }) {
   const { title, description, whyMayFit, badges, matchReasons, matchStrength, url, reliability } =
     opportunity;
@@ -351,12 +483,18 @@ function ResultsSection({
   visible,
   matchResults,
   redisBadge,
+  novaGuide,
+  novaGuideStatus,
+  onGenerateNovaGuide,
   onRefine,
   onStartOver,
 }: {
   visible: boolean;
   matchResults: MatchResults | null;
   redisBadge: string | null;
+  novaGuide: NovaGuideResponse | null;
+  novaGuideStatus: NovaGuideStatus;
+  onGenerateNovaGuide: () => void | Promise<void>;
   onRefine: () => void;
   onStartOver: () => void;
 }) {
@@ -406,6 +544,13 @@ function ResultsSection({
             Some opportunities may require a parent, guardian, teacher, or counselor to help apply.
           </p>
         )}
+
+        <NovaGuideCard
+          matchResults={matchResults}
+          guide={novaGuide}
+          status={novaGuideStatus}
+          onGenerate={onGenerateNovaGuide}
+        />
 
         <div className="results-lanes results-bloom mt-12">
           {matchResults.lanes.map((lane) => (
@@ -464,6 +609,8 @@ export default function Home() {
   const [matchResults, setMatchResults] = useState<MatchResults | null>(null);
   const [redisBadge, setRedisBadge] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [novaGuide, setNovaGuide] = useState<NovaGuideResponse | null>(null);
+  const [novaGuideStatus, setNovaGuideStatus] = useState<NovaGuideStatus>("idle");
 
   const introRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -487,6 +634,8 @@ export default function Home() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setNovaGuide(null);
+    setNovaGuideStatus("idle");
     try {
       const response = await fetch("/api/matches", {
         method: "POST",
@@ -514,6 +663,9 @@ export default function Home() {
   };
 
   const handleRefine = () => {
+    // Return to the form only — do not call /api/matches until the user submits again.
+    setNovaGuide(null);
+    setNovaGuideStatus("idle");
     setStage("form");
     scrollTo(formRef);
   };
@@ -522,8 +674,37 @@ export default function Home() {
     setForm(emptyForm);
     setMatchResults(null);
     setRedisBadge(null);
+    setNovaGuide(null);
+    setNovaGuideStatus("idle");
     setStage("hero");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleGenerateNovaGuide = async () => {
+    if (!matchResults) return;
+
+    setNovaGuideStatus("loading");
+    const topOpportunities = pickTopGuideOpportunities(matchResults);
+
+    try {
+      const response = await fetch("/api/nova-guide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: form, topOpportunities }),
+      });
+
+      if (response.ok) {
+        const guide = (await response.json()) as NovaGuideResponse;
+        setNovaGuide(guide);
+        setNovaGuideStatus(guide.aiPowered ? "success" : "fallback");
+      } else {
+        setNovaGuide(buildFallbackNovaGuide(topOpportunities));
+        setNovaGuideStatus("fallback");
+      }
+    } catch {
+      setNovaGuide(buildFallbackNovaGuide(topOpportunities));
+      setNovaGuideStatus("fallback");
+    }
   };
 
   return (
@@ -536,8 +717,9 @@ export default function Home() {
 
       <div ref={formRef}>
         <FormSection
-          visible={stage === "form" || stage === "results"}
+          visible={stage === "form"}
           form={form}
+          isRefining={matchResults !== null}
           onChange={setForm}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
@@ -549,6 +731,9 @@ export default function Home() {
           visible={stage === "results"}
           matchResults={matchResults}
           redisBadge={redisBadge}
+          novaGuide={novaGuide}
+          novaGuideStatus={novaGuideStatus}
+          onGenerateNovaGuide={handleGenerateNovaGuide}
           onRefine={handleRefine}
           onStartOver={handleStartOver}
         />

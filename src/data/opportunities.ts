@@ -1,6 +1,6 @@
-import type { Opportunity } from "@/types/opportunity";
+import type { Opportunity, OpportunitySeed } from "@/types/opportunity";
 import { ADDITIONAL_OPPORTUNITIES } from "../../docs/sai-additional-opportunities";
-import { ensureOpportunityFields, normalizeSaiOpportunity } from "./opportunity-normalize";
+import { ensureOpportunityFields, enrichOpportunityMetadata, normalizeSaiOpportunity } from "./opportunity-normalize";
 
 export const CITIES = [
   "Oakland",
@@ -61,7 +61,7 @@ export const LANE_LABELS: Record<Opportunity["lane"], string> = {
 };
 
 /** Hand-curated from docs/sai-opportunity-research.md */
-const baseOpportunities: Opportunity[] = [
+const baseOpportunities: OpportunitySeed[] = [
   // ── Financial ──
   {
     id: "fin-cal-grant",
@@ -717,6 +717,8 @@ const baseOpportunities: Opportunity[] = [
 ];
 
 export const opportunities: Opportunity[] = [
-  ...baseOpportunities.map(ensureOpportunityFields),
+  ...baseOpportunities.map((opportunity) =>
+    enrichOpportunityMetadata(ensureOpportunityFields(opportunity)),
+  ),
   ...ADDITIONAL_OPPORTUNITIES.map(normalizeSaiOpportunity),
 ];

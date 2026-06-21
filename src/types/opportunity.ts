@@ -4,12 +4,30 @@ export type Reliability = "verified-url" | "hand-curated" | "review-deadlines";
 
 export type MatchStrength = "strong" | "good" | "explore";
 
+export type LocationScope = "city" | "bay-area" | "california" | "national";
+
+export type FirstGenFocus = "primary" | "secondary" | "none";
+
+/** Seeded opportunity before location/first-gen metadata enrichment */
+export type OpportunitySeed = Omit<
+  Opportunity,
+  "serviceAreas" | "locationScope" | "firstGenFocus"
+> & {
+  serviceAreas?: string[];
+  locationScope?: LocationScope;
+  firstGenFocus?: FirstGenFocus;
+};
+
 export type Opportunity = {
   id: string;
   title: string;
   lane: OpportunityLane;
   url: string;
   region: string;
+  /** Approximate service areas derived from region text */
+  serviceAreas: string[];
+  locationScope: LocationScope;
+  primaryCity?: string;
   ageRange: string[];
   /** Identity-specific primary audiences */
   primaryCommunities: string[];
@@ -22,6 +40,8 @@ export type Opportunity = {
   interests: string[];
   supportTypes: string[];
   firstGenRelevant: boolean;
+  /** How strongly the opportunity centers first-generation support */
+  firstGenFocus: FirstGenFocus;
   description: string;
   whyItMayFit: string;
   reliability: Reliability;

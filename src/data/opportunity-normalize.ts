@@ -1,5 +1,9 @@
-import type { Opportunity } from "@/types/opportunity";
+import type { Opportunity, OpportunitySeed } from "@/types/opportunity";
 import type { SaiOpportunity, SaiReliability } from "../../docs/sai-additional-opportunities";
+import {
+  deriveFirstGenFocus,
+  deriveLocationFromRegion,
+} from "@/data/opportunity-metadata";
 
 export const UNDERREPRESENTED_TAG = "Underrepresented";
 export const LOW_INCOME_TAG = "Low-income";
@@ -75,15 +79,30 @@ function mapFirstGenRelevance(relevance: SaiOpportunity["firstGenRelevance"]): b
   return relevance === "high" || relevance === "moderate";
 }
 
+export function enrichOpportunityMetadata(opportunity: Opportunity): Opportunity {
+  const location = deriveLocationFromRegion(opportunity.region);
+  const firstGenFocus = deriveFirstGenFocus(opportunity);
+
+  return {
+    ...opportunity,
+    serviceAreas: location.serviceAreas,
+    locationScope: location.locationScope,
+    primaryCity: location.primaryCity,
+    firstGenFocus,
+  };
+}
+
 export function normalizeSaiOpportunity(input: SaiOpportunity): Opportunity {
   const communities = mergeCommunities(input.primaryCommunities, input.secondaryCommunities);
 
-  return {
+  const base: Opportunity = {
     id: input.id,
     title: input.title,
     lane: input.lane,
     url: input.url,
     region: input.region,
+    serviceAreas: [],
+    locationScope: "national",
     ageRange: input.ageRange,
     primaryCommunities: communities.primaryCommunities,
     secondaryCommunities: communities.secondaryCommunities,
@@ -92,27 +111,33 @@ export function normalizeSaiOpportunity(input: SaiOpportunity): Opportunity {
     interests: input.interests,
     supportTypes: input.supportTypes,
     firstGenRelevant: mapFirstGenRelevance(input.firstGenRelevance),
+    firstGenFocus: "none",
     description: input.description,
     whyItMayFit: input.whyItMayFit,
     reliability: mapReliability(input.reliability),
     badges: input.badges,
   };
+
+  return enrichOpportunityMetadata(base);
 }
 
 /** Backfill legacy records that only had `communities` populated. */
-export function ensureOpportunityFields(opportunity: Opportunity): Opportunity {
+export function ensureOpportunityFields(opportunity: OpportunitySeed): Opportunity {
   if (
     opportunity.primaryCommunities.length > 0 ||
     opportunity.secondaryCommunities.length > 0 ||
     opportunity.openToAll
   ) {
-    return {
+    return enrichOpportunityMetadata({
       ...opportunity,
+      serviceAreas: opportunity.serviceAreas ?? [],
+      locationScope: opportunity.locationScope ?? "national",
+      firstGenFocus: opportunity.firstGenFocus ?? deriveFirstGenFocus(opportunity),
       communities:
         opportunity.communities.length > 0
           ? opportunity.communities
           : [...opportunity.primaryCommunities],
-    };
+    });
   }
 
   const legacy = splitCommunityTags(opportunity.communities);
@@ -123,11 +148,15 @@ export function ensureOpportunityFields(opportunity: Opportunity): Opportunity {
     secondaryCommunities.push(UNDERREPRESENTED_TAG);
   }
 
-  return {
+  return enrichOpportunityMetadata({
     ...opportunity,
     primaryCommunities,
     secondaryCommunities: [...new Set(secondaryCommunities)],
     openToAll: opportunity.openToAll ?? false,
     communities: opportunity.communities.length > 0 ? opportunity.communities : primaryCommunities,
-  };
+    serviceAreas: opportunity.serviceAreas ?? [],
+    locationScope: opportunity.locationScope ?? "national",
+    primaryCity: opportunity.primaryCity,
+    firstGenFocus: opportunity.firstGenFocus ?? "none",
+  });
 }

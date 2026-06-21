@@ -381,3 +381,30 @@ select:focus-visible,
   text-transform: uppercase;
   color: var(--navy-deep);
 }
+
+.nova-guide-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(154, 171, 142, 0.45);
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.95) 0%, rgba(245, 240, 230, 0.9) 100%);
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(45, 55, 72, 0.06);
+}
+
+.nova-guide-status {
+  display: inline-block;
+  border-radius: 9999px;
+  border: 1px solid rgba(154, 171, 142, 0.45);
+  background: rgba(154, 171, 142, 0.15);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3d4f36;
+}
+
+.nova-guide-status--fallback {
+  border-color: rgba(212, 196, 168, 0.55);
+  background: rgba(212, 196, 168, 0.25);
+  color: var(--navy);
+}
