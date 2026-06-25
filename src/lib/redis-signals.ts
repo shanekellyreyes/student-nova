@@ -10,6 +10,7 @@ import {
   opportunities,
 } from "@/data/opportunities";
 import { getRedisClient, isRedisConfigured } from "@/lib/redis";
+import { REDIS_SIGNALS_TIMEOUT_MS, withTimeout } from "@/lib/redis-timeout";
 import type { IntakeFormData, MatchResults } from "@/types/opportunity";
 import type { SignalCount, SignalsApiResponse, TrendingOpportunity } from "@/types/signals";
 
@@ -101,11 +102,33 @@ export async function recordMatchSignals(
   intake: IntakeFormData,
   results: MatchResults,
 ): Promise<void> {
+  await withTimeout(
+    recordMatchSignalsInternal(intake, results),
+    REDIS_SIGNALS_TIMEOUT_MS,
+    undefined,
+    () => devLog("skipped timeout"),
+  );
+}
+
+export function recordMatchSignalsBestEffort(
+  intake: IntakeFormData,
+  results: MatchResults,
+): void {
+  void recordMatchSignals(intake, results).catch((error) => {
+    devLog("record failure", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+  });
+}
+
+async function recordMatchSignalsInternal(
+  intake: IntakeFormData,
+  results: MatchResults,
+): Promise<void> {
   const redis = await getRedisClient();
   if (!redis) return;
 
-  try {
-    const multi = redis.multi();
+  const multi = redis.multi();
 
     if (ALLOWED_CITIES.has(intake.city)) {
       multi.hIncrBy(SIGNAL_KEYS.cities, intake.city, 1);
@@ -143,13 +166,8 @@ export async function recordMatchSignals(
       multi.zIncrBy(SIGNAL_KEYS.topOpportunities, 1, opportunityId);
     }
 
-    await multi.exec();
-    devLog("recorded match signals", { opportunityIds: collectReturnedOpportunityIds(results).length });
-  } catch (error) {
-    devLog("record failure", {
-      message: error instanceof Error ? error.message : "unknown",
-    });
-  }
+  await multi.exec();
+  devLog("recorded match signals", { opportunityIds: collectReturnedOpportunityIds(results).length });
 }
 
 export async function getOpportunitySignals(): Promise<SignalsApiResponse> {

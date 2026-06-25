@@ -5,7 +5,7 @@ import {
   buildMatchCacheMetadata,
   matchCacheKey,
   readMatchCacheMetadata,
-  writeMatchCacheMetadata,
+  writeMatchCacheMetadataBestEffort,
 } from "@/lib/match-cache";
 import { isRedisConfigured } from "@/lib/redis";
 import type {
@@ -48,11 +48,7 @@ export async function getMatchesWithRedis(intake: IntakeFormData): Promise<Match
   }
 
   const metadata = buildMatchCacheMetadata(intake, results);
-  const wrote = await writeMatchCacheMetadata(cacheKey, metadata);
-
-  if (!wrote) {
-    return buildResponse(results, emptyRedisStatus(true, "cache_write_failed"));
-  }
+  writeMatchCacheMetadataBestEffort(cacheKey, metadata);
 
   return buildResponse(results, {
     cacheHit: false,

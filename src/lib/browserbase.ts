@@ -1,10 +1,14 @@
 import "server-only";
 
 import Browserbase from "@browserbasehq/sdk";
-import { chromium, type Page } from "playwright-core";
+import { chromium } from "playwright-core";
 
 import type { SourceScoutDegradedReason, SourceScoutNote, SourceScoutNoteStatus } from "@/types/source-scout";
 import { SOURCE_SCOUT_MAX_URLS } from "@/types/source-scout";
+import {
+  buildCheckedSourceFields,
+  extractCleanPageContent,
+} from "@/lib/source-scout-extract";
 
 export type OfficialSourceTarget = {
   opportunityId: string;
@@ -25,12 +29,7 @@ export type CheckOfficialSourcesResult = {
 };
 
 const PAGE_TIMEOUT_MS = 12_000;
-const EXCERPT_MAX_CHARS = 240;
-const DEADLINE_SNIPPET_MAX_CHARS = 160;
 const FALLBACK_NOTE_REASON = "Live refresh unavailable — showing seeded official links";
-
-const DEADLINE_PATTERN =
-  /\b(?:deadline|apply by|application due|due date|applications close)[^.!?\n]{0,100}[.!?]?/gi;
 
 function isDev(): boolean {
   return process.env.NODE_ENV === "development";
@@ -94,39 +93,6 @@ function isSafeOfficialUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-function cleanVisibleText(raw: string): string {
-  return raw.replace(/\s+/g, " ").trim();
-}
-
-function buildExcerpt(text: string): string | undefined {
-  const cleaned = cleanVisibleText(text);
-  if (!cleaned) return undefined;
-  if (cleaned.length <= EXCERPT_MAX_CHARS) return cleaned;
-  return `${cleaned.slice(0, EXCERPT_MAX_CHARS).trim()}…`;
-}
-
-function extractPossibleDeadlineText(text: string): string | undefined {
-  const matches = text.match(DEADLINE_PATTERN);
-  if (!matches?.length) return undefined;
-
-  const snippet = cleanVisibleText(matches[0]).slice(0, DEADLINE_SNIPPET_MAX_CHARS);
-  return snippet || undefined;
-}
-
-async function extractPageMetadata(page: Page): Promise<{ pageTitle: string; bodyText: string }> {
-  const pageTitle = cleanVisibleText(await page.title());
-  const bodyText = await page.evaluate(() => {
-    const root = document.body;
-    if (!root) return "";
-    return root.innerText ?? "";
-  });
-
-  return {
-    pageTitle,
-    bodyText: cleanVisibleText(bodyText),
-  };
 }
 
 function buildNote(
@@ -240,12 +206,23 @@ export async function checkOfficialSourcesWithBrowserbase(
           timeout: PAGE_TIMEOUT_MS,
         });
 
-        const { pageTitle, bodyText } = await extractPageMetadata(page);
+        const { pageTitle, rawTextLength, cleanedTextLength, lines } =
+          await extractCleanPageContent(page);
+        const { sourceExcerpt, possibleDeadlineText, usedFallback } =
+          buildCheckedSourceFields(lines);
+
+        devLog("extraction quality", {
+          opportunityId: target.opportunityId,
+          rawTextLength,
+          cleanedTextLength,
+          usedFallback,
+        });
+
         notes.push(
           buildNote(target, checkedAt, "checked", sessionUrl(), {
             pageTitle: pageTitle || undefined,
-            sourceExcerpt: buildExcerpt(bodyText),
-            possibleDeadlineText: extractPossibleDeadlineText(bodyText),
+            sourceExcerpt,
+            possibleDeadlineText,
           }),
         );
         devLog("page fetch success", { opportunityId: target.opportunityId });

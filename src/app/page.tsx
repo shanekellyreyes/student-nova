@@ -23,7 +23,7 @@ import type { SourceScoutNote, SourceScoutResponse } from "@/types/source-scout"
 
 type Stage = "hero" | "intro" | "form" | "results";
 type NovaGuideStatus = "idle" | "loading" | "success" | "fallback";
-type SourceScoutStatus = "idle" | "loading" | "success" | "fallback";
+type SourceScoutStatus = "idle" | "loading" | "success" | "degraded" | "error";
 
 const DIRECTORY_LANES = ["financial", "educational", "professional"] as const;
 const DIRECTORY_OPPORTUNITY_IDS = DIRECTORY_LANES.flatMap((lane) =>
@@ -421,54 +421,85 @@ function SignalList({ title, items }: { title: string; items: { label: string; c
   );
 }
 
-function LiveOpportunitySignalsPanel({ visible }: { visible: boolean }) {
-  const [signals, setSignals] = useState<SignalsApiResponse | null>(null);
+function LiveOpportunitySignalsPanel({
+  visible,
+  signals,
+  showUpdatedBadge,
+  isLoading = false,
+}: {
+  visible: boolean;
+  signals: SignalsApiResponse | null;
+  showUpdatedBadge: boolean;
+  isLoading?: boolean;
+}) {
+  if (!visible) return null;
 
-  useEffect(() => {
-    if (!visible) return;
-
-    let cancelled = false;
-
-    void fetch("/api/signals")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: SignalsApiResponse | null) => {
-        if (cancelled || !data || data.degraded || !signalsHaveData(data)) return;
-        setSignals(data);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [visible]);
-
-  if (!visible || !signals) return null;
+  const hasData = Boolean(signals && !signals.degraded && signalsHaveData(signals));
 
   return (
     <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-tan/50 bg-cream/70 px-5 py-5 sm:px-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="font-display text-xl text-navy-deep">Live Opportunity Signals</h3>
-        <span className="redis-badge w-fit">Redis powered</span>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-display text-xl text-navy-deep">Live Opportunity Signals</h3>
+          <span className="redis-badge mt-2 inline-block">Powered by Redis</span>
+        </div>
+        {showUpdatedBadge && (
+          <span className="w-fit rounded-full border border-sage/40 bg-sage/15 px-3 py-1 text-xs font-medium text-navy/80">
+            Updated from your search
+          </span>
+        )}
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-navy/75">
-        Anonymous trends from recent Student Nova matches.
+      <p className="mt-3 text-sm leading-relaxed text-navy/75">
+        Anonymous trends from recent searches — no names, emails, or student profiles stored.
       </p>
-      <div className="mt-5 grid gap-5 sm:grid-cols-3">
-        <SignalList title="Popular interests" items={signals.topInterests} />
-        <SignalList title="Common support needs" items={signals.topSupportTypes} />
-        <SignalList
-          title="Trending opportunities"
-          items={signals.topOpportunities.map((item) => ({
-            label: item.title,
-            count: item.count,
-          }))}
-        />
-      </div>
+
+      {isLoading && (
+        <p className="mt-4 text-sm text-helper">Loading opportunity signals…</p>
+      )}
+
+      {!isLoading && !hasData && (
+        <p className="mt-4 rounded-lg border border-tan/40 bg-paper/60 px-4 py-3 text-sm text-navy/75">
+          Run a search to generate anonymous opportunity signals.
+        </p>
+      )}
+
+      {!isLoading && hasData && signals && (
+        <>
+          <div className="mt-5 grid gap-5 sm:grid-cols-3">
+            <SignalList title="Top interests" items={signals.topInterests} />
+            <SignalList title="Top support needs" items={signals.topSupportTypes} />
+            <SignalList
+              title="Trending opportunities"
+              items={signals.topOpportunities.map((item) => ({
+                label: item.title,
+                count: item.count,
+              }))}
+            />
+          </div>
+          {signals.topCities.length > 0 && (
+            <div className="mt-5 border-t border-tan/30 pt-4">
+              <SignalList title="Top cities" items={signals.topCities} />
+            </div>
+          )}
+        </>
+      )}
+
       <p className="mt-4 text-xs leading-relaxed text-helper">
-        Aggregate counts only — no names, emails, schools, or free-text answers are stored.
+        Redis stores aggregate counters so Student Nova can learn what students are looking for
+        without storing personal identity.
       </p>
     </div>
   );
+}
+
+async function fetchOpportunitySignals(): Promise<SignalsApiResponse | null> {
+  try {
+    const response = await fetch("/api/signals");
+    if (!response.ok) return null;
+    return (await response.json()) as SignalsApiResponse;
+  } catch {
+    return null;
+  }
 }
 
 function NovaGuideCard({
@@ -583,9 +614,9 @@ function NovaGuideCard({
 function SourceScoutNotePanel({ note }: { note: SourceScoutNote }) {
   if (note.status === "fallback") {
     return (
-      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/80 px-4 py-3 text-xs leading-relaxed text-navy/75">
-        <p className="font-medium text-navy">Live refresh unavailable — showing seeded official links</p>
-        {note.reason && <p className="mt-1">{note.reason}</p>}
+      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/90 px-4 py-3 text-xs leading-relaxed text-navy/80">
+        <p className="font-medium text-navy">Live refresh unavailable</p>
+        {note.reason && <p className="mt-1 text-helper">{note.reason}</p>}
         <p className="mt-2 text-helper">Verify requirements on the official site.</p>
       </div>
     );
@@ -593,29 +624,23 @@ function SourceScoutNotePanel({ note }: { note: SourceScoutNote }) {
 
   if (note.status === "failed") {
     return (
-      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/80 px-4 py-3 text-xs leading-relaxed text-navy/75">
+      <div className="mt-4 rounded-lg border border-tan/50 bg-paper/90 px-4 py-3 text-xs leading-relaxed text-navy/80">
         <p className="font-medium text-navy">Could not check this official source</p>
-        {note.reason && <p className="mt-1">{note.reason}</p>}
-        <p className="mt-2 text-helper">Use the seeded official link and verify on the official site.</p>
+        {note.reason && <p className="mt-1 text-helper">{note.reason}</p>}
+        <p className="mt-2 text-helper">Verify requirements on the official site.</p>
       </div>
     );
   }
 
+  const excerpt =
+    note.sourceExcerpt && note.sourceExcerpt.length > 220
+      ? `${note.sourceExcerpt.slice(0, 220).trim()}…`
+      : note.sourceExcerpt;
+
   return (
     <div className="mt-4 rounded-lg border border-sage/30 bg-sage/10 px-4 py-3 text-xs leading-relaxed text-navy/80">
-      <p className="font-medium text-navy">Checked official source</p>
-      {note.pageTitle && (
-        <p className="mt-2">
-          <span className="font-medium text-navy/70">Page title: </span>
-          {note.pageTitle}
-        </p>
-      )}
-      {note.sourceExcerpt && (
-        <p className="mt-2">
-          <span className="font-medium text-navy/70">Source excerpt: </span>
-          {note.sourceExcerpt}
-        </p>
-      )}
+      <p className="font-medium text-navy">Official source checked</p>
+      {excerpt && <p className="mt-2 leading-relaxed">{excerpt}</p>}
       {note.possibleDeadlineText && (
         <p className="mt-2">
           <span className="font-medium text-navy/70">
@@ -624,7 +649,90 @@ function SourceScoutNotePanel({ note }: { note: SourceScoutNote }) {
           {note.possibleDeadlineText}
         </p>
       )}
+      <a
+        href={note.sourceUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex text-sm font-medium text-navy underline-offset-2 hover:underline"
+      >
+        Official source
+        <span className="sr-only"> opens in a new tab</span>
+      </a>
       <p className="mt-2 text-helper">Verify requirements on the official site.</p>
+    </div>
+  );
+}
+
+function SourceScoutStatusBanner({
+  status,
+  lastResponse,
+}: {
+  status: SourceScoutStatus;
+  lastResponse: SourceScoutResponse | null;
+}) {
+  if (status === "idle") return null;
+
+  let message = "";
+  let toneClass = "border-tan/50 bg-paper/80 text-navy/80";
+
+  if (status === "loading") {
+    message = "Nova Source Scout is checking official sources…";
+    toneClass = "border-sage/40 bg-sage/10 text-navy/85";
+  } else if (status === "success") {
+    message = "Browserbase checked official sources.";
+    toneClass = "border-sage/40 bg-sage/10 text-navy/85";
+  } else if (status === "degraded") {
+    message = "Live refresh unavailable — showing seeded official links.";
+    toneClass = "border-tan/50 bg-paper/80 text-navy/80";
+  } else if (status === "error") {
+    message = "Source refresh could not complete. Showing seeded official links.";
+    toneClass = "border-tan/50 bg-paper/80 text-navy/80";
+  }
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  return (
+    <div className={`mx-auto mt-6 max-w-3xl rounded-xl border px-4 py-3 text-sm ${toneClass}`}>
+      <p className="font-medium">{message}</p>
+      {isDev && lastResponse && status !== "loading" && (
+        <dl className="mt-3 space-y-1 border-t border-tan/30 pt-3 font-mono text-xs text-navy/70">
+          <div className="flex justify-between gap-4">
+            <dt>browserbasePowered</dt>
+            <dd>{String(lastResponse.browserbasePowered)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>degraded</dt>
+            <dd>{String(lastResponse.degraded)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>reason</dt>
+            <dd>{lastResponse.reason ?? "none"}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>notes</dt>
+            <dd>{lastResponse.notes.length}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>sessionUrl</dt>
+            <dd>{lastResponse.sessionUrl ? "yes" : "no"}</dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function SourceScoutNotesSummary({ notes }: { notes: SourceScoutNote[] }) {
+  if (notes.length === 0) return null;
+
+  return (
+    <div className="mx-auto mt-6 max-w-3xl">
+      <h3 className="font-display text-lg text-navy-deep">Nova Source Scout notes</h3>
+      <div className="mt-3 space-y-3">
+        {notes.map((note) => (
+          <SourceScoutNotePanel key={note.opportunityId} note={note} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -669,12 +777,14 @@ function DirectorySection({
   visible,
   sourceScoutNotes,
   sourceScoutStatus,
+  sourceScoutLastResponse,
   sessionUrl,
   onRefresh,
 }: {
   visible: boolean;
   sourceScoutNotes: Record<string, SourceScoutNote>;
   sourceScoutStatus: SourceScoutStatus;
+  sourceScoutLastResponse: SourceScoutResponse | null;
   sessionUrl: string | null;
   onRefresh: () => void | Promise<void>;
 }) {
@@ -712,24 +822,26 @@ function DirectorySection({
             disabled={sourceScoutStatus === "loading"}
             className="rounded-full bg-navy px-6 py-3 text-sm font-medium text-cream transition-all hover:bg-navy-deep disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Refresh official details
+            {sourceScoutStatus === "loading" ? "Checking official sources…" : "Refresh official details"}
           </button>
           {sessionUrl && (
             <a
               href={sessionUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(event) => {
-                event.preventDefault();
-                window.open(sessionUrl, "_blank", "noopener,noreferrer");
-              }}
               className="text-sm font-medium text-navy/70 underline-offset-2 hover:text-navy hover:underline"
             >
-              View Browserbase session
-              <span className="sr-only"> (opens in new tab)</span>
+              View Browserbase Session
+              <span className="sr-only"> opens in a new tab</span>
             </a>
           )}
         </div>
+
+        <SourceScoutStatusBanner status={sourceScoutStatus} lastResponse={sourceScoutLastResponse} />
+
+        {sourceScoutLastResponse && sourceScoutLastResponse.notes.length > 0 && (
+          <SourceScoutNotesSummary notes={sourceScoutLastResponse.notes} />
+        )}
 
         <div className="results-lanes mt-12">
           {DIRECTORY_LANES.map((lane) => {
@@ -823,6 +935,9 @@ function ResultsSection({
   redisBadge,
   novaGuide,
   novaGuideStatus,
+  opportunitySignals,
+  signalsUpdatedBadge,
+  signalsLoading,
   onGenerateNovaGuide,
   onRefine,
   onStartOver,
@@ -833,6 +948,9 @@ function ResultsSection({
   redisBadge: string | null;
   novaGuide: NovaGuideResponse | null;
   novaGuideStatus: NovaGuideStatus;
+  opportunitySignals: SignalsApiResponse | null;
+  signalsUpdatedBadge: boolean;
+  signalsLoading: boolean;
   onGenerateNovaGuide: () => void | Promise<void>;
   onRefine: () => void;
   onStartOver: () => void;
@@ -887,7 +1005,12 @@ function ResultsSection({
           </p>
         )}
 
-        <LiveOpportunitySignalsPanel visible={visible} />
+        <LiveOpportunitySignalsPanel
+          visible={visible}
+          signals={opportunitySignals}
+          showUpdatedBadge={signalsUpdatedBadge}
+          isLoading={signalsLoading}
+        />
 
         <NovaGuideCard
           matchResults={matchResults}
@@ -966,7 +1089,14 @@ export default function Home() {
   const [showDirectory, setShowDirectory] = useState(false);
   const [sourceScoutNotes, setSourceScoutNotes] = useState<Record<string, SourceScoutNote>>({});
   const [sourceScoutStatus, setSourceScoutStatus] = useState<SourceScoutStatus>("idle");
+  const [sourceScoutLastResponse, setSourceScoutLastResponse] = useState<SourceScoutResponse | null>(
+    null,
+  );
   const [sourceScoutSessionUrl, setSourceScoutSessionUrl] = useState<string | null>(null);
+  const [opportunitySignals, setOpportunitySignals] = useState<SignalsApiResponse | null>(null);
+  const [signalsUpdatedBadge, setSignalsUpdatedBadge] = useState(false);
+  const [signalsLoading, setSignalsLoading] = useState(false);
+  const signalsBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const introRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -977,6 +1107,57 @@ export default function Home() {
     requestAnimationFrame(() => {
       ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }, []);
+
+  const refreshOpportunitySignals = useCallback(async (fromMatch = false) => {
+    setSignalsLoading(true);
+
+    const applySignals = (data: SignalsApiResponse | null) => {
+      if (!data) return;
+      setOpportunitySignals(data);
+
+      if (fromMatch) {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[signals-ui] refreshed after match");
+        }
+        if (!data.degraded) {
+          setSignalsUpdatedBadge(true);
+          if (signalsBadgeTimeoutRef.current) {
+            clearTimeout(signalsBadgeTimeoutRef.current);
+          }
+          signalsBadgeTimeoutRef.current = setTimeout(() => {
+            setSignalsUpdatedBadge(false);
+          }, 5000);
+        }
+      }
+    };
+
+    try {
+      let data = await fetchOpportunitySignals();
+      applySignals(data);
+
+      if (fromMatch && data && (!signalsHaveData(data) || data.degraded)) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        data = await fetchOpportunitySignals();
+        applySignals(data);
+      }
+    } finally {
+      setSignalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (stage === "results") {
+      void refreshOpportunitySignals(false);
+    }
+  }, [stage, refreshOpportunitySignals]);
+
+  useEffect(() => {
+    return () => {
+      if (signalsBadgeTimeoutRef.current) {
+        clearTimeout(signalsBadgeTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleUnlock = () => {
@@ -1005,6 +1186,7 @@ export default function Home() {
         const { redis, ...results } = data;
         setMatchResults(results);
         setRedisBadge(getRedisBadgeLabel(redis));
+        void refreshOpportunitySignals(true);
       } else {
         setMatchResults(matchOpportunities(form));
         setRedisBadge(null);
@@ -1036,7 +1218,11 @@ export default function Home() {
     setShowDirectory(false);
     setSourceScoutNotes({});
     setSourceScoutStatus("idle");
+    setSourceScoutLastResponse(null);
     setSourceScoutSessionUrl(null);
+    setOpportunitySignals(null);
+    setSignalsUpdatedBadge(false);
+    setSignalsLoading(false);
     setStage("hero");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1047,6 +1233,10 @@ export default function Home() {
   };
 
   const handleRefreshSourceScout = async () => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("[source-scout-ui] refresh start");
+    }
+
     setSourceScoutStatus("loading");
 
     try {
@@ -1060,6 +1250,7 @@ export default function Home() {
 
       if (response.ok) {
         const data = (await response.json()) as SourceScoutResponse;
+        setSourceScoutLastResponse(data);
         setSourceScoutSessionUrl(data.sessionUrl ?? null);
         setSourceScoutNotes((current) => {
           const next = { ...current };
@@ -1068,14 +1259,36 @@ export default function Home() {
           }
           return next;
         });
-        setSourceScoutStatus(
-          data.browserbasePowered && !data.degraded ? "success" : "fallback",
-        );
+
+        if (process.env.NODE_ENV === "development") {
+          console.log("[source-scout-ui] refresh success", {
+            browserbasePowered: data.browserbasePowered,
+            degraded: data.degraded,
+            hasSessionUrl: Boolean(data.sessionUrl),
+            noteCount: data.notes.length,
+          });
+        }
+
+        if (data.browserbasePowered && !data.degraded) {
+          setSourceScoutStatus("success");
+        } else {
+          setSourceScoutStatus("degraded");
+        }
       } else {
-        setSourceScoutStatus("fallback");
+        if (process.env.NODE_ENV === "development") {
+          console.log("[source-scout-ui] refresh failure", {
+            message: `HTTP ${response.status}`,
+          });
+        }
+        setSourceScoutStatus("error");
       }
-    } catch {
-      setSourceScoutStatus("fallback");
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[source-scout-ui] refresh failure", {
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
+      setSourceScoutStatus("error");
     }
   };
 
@@ -1138,6 +1351,9 @@ export default function Home() {
           redisBadge={redisBadge}
           novaGuide={novaGuide}
           novaGuideStatus={novaGuideStatus}
+          opportunitySignals={opportunitySignals}
+          signalsUpdatedBadge={signalsUpdatedBadge}
+          signalsLoading={signalsLoading}
           onGenerateNovaGuide={handleGenerateNovaGuide}
           onRefine={handleRefine}
           onStartOver={handleStartOver}
@@ -1149,6 +1365,7 @@ export default function Home() {
             visible={stage === "results" && showDirectory}
             sourceScoutNotes={sourceScoutNotes}
             sourceScoutStatus={sourceScoutStatus}
+            sourceScoutLastResponse={sourceScoutLastResponse}
             sessionUrl={sourceScoutSessionUrl}
             onRefresh={handleRefreshSourceScout}
           />

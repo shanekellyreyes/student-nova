@@ -3,6 +3,11 @@ import "server-only";
 import { createHash } from "crypto";
 import type { IntakeFormData, MatchResults } from "@/types/opportunity";
 import {
+  REDIS_CACHE_READ_TIMEOUT_MS,
+  REDIS_CACHE_WRITE_TIMEOUT_MS,
+  withTimeout,
+} from "@/lib/redis-timeout";
+import {
   MATCHES_CACHE_PREFIX,
   MATCHES_CACHE_TTL_SECONDS,
   getRedisClient,
@@ -78,7 +83,7 @@ export function buildMatchCacheMetadata(
   };
 }
 
-export async function readMatchCacheMetadata(
+async function readMatchCacheMetadataInternal(
   key: string,
 ): Promise<{ status: "hit" } | { status: "miss" }> {
   devLog("cache key", { key });
@@ -89,23 +94,29 @@ export async function readMatchCacheMetadata(
     return { status: "miss" };
   }
 
-  try {
-    const cached = await redis.get(key);
-    if (!cached) {
-      devLog("cache miss");
-      return { status: "miss" };
-    }
-
-    JSON.parse(cached) as MatchCacheMetadata;
-    devLog("cache hit");
-    return { status: "hit" };
-  } catch {
+  const cached = await redis.get(key);
+  if (!cached) {
     devLog("cache miss");
     return { status: "miss" };
   }
+
+  JSON.parse(cached) as MatchCacheMetadata;
+  devLog("cache hit");
+  return { status: "hit" };
 }
 
-export async function writeMatchCacheMetadata(
+export async function readMatchCacheMetadata(
+  key: string,
+): Promise<{ status: "hit" } | { status: "miss" }> {
+  return withTimeout(
+    readMatchCacheMetadataInternal(key),
+    REDIS_CACHE_READ_TIMEOUT_MS,
+    { status: "miss" },
+    () => devLog("cache skipped timeout"),
+  );
+}
+
+async function writeMatchCacheMetadataInternal(
   key: string,
   metadata: MatchCacheMetadata,
 ): Promise<boolean> {
@@ -115,12 +126,28 @@ export async function writeMatchCacheMetadata(
     return false;
   }
 
-  try {
-    await redis.set(key, JSON.stringify(metadata), { EX: MATCHES_CACHE_TTL_SECONDS });
-    devLog("cache write success");
-    return true;
-  } catch {
+  await redis.set(key, JSON.stringify(metadata), { EX: MATCHES_CACHE_TTL_SECONDS });
+  devLog("cache write success");
+  return true;
+}
+
+export async function writeMatchCacheMetadata(
+  key: string,
+  metadata: MatchCacheMetadata,
+): Promise<boolean> {
+  return withTimeout(
+    writeMatchCacheMetadataInternal(key, metadata),
+    REDIS_CACHE_WRITE_TIMEOUT_MS,
+    false,
+    () => devLog("cache write skipped timeout"),
+  );
+}
+
+export function writeMatchCacheMetadataBestEffort(
+  key: string,
+  metadata: MatchCacheMetadata,
+): void {
+  void writeMatchCacheMetadata(key, metadata).catch(() => {
     devLog("cache write failure");
-    return false;
-  }
+  });
 }
